@@ -20,6 +20,10 @@ src-tauri/gen/schemas
 *.env
 !.env.example
 
+# Prompts & Specs
+PROMPT.md
+prompt.md
+
 # App Data / Local JSON store
 AppData/
 *.local.json
