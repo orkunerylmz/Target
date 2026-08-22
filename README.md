@@ -115,6 +115,12 @@ Active goal cards with completion percentages, remaining days, required monthly 
 3. **Consult Target AI**: Receive personalized financial strategies and actionable budget guidance tailored to your goal timeline.
 4. **Set Up Reminders**: Schedule daily or weekly reminders to maintain a consistent saving habit.
 
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 <br />
 
 ---
@@ -226,3 +232,9 @@ Aktif hedeflerin listesi, tamamlanma yüzdeleri, kalan gün süreleri, gereken a
 2. **Birikim Ekleyin**: Birikim yaptıkça hedefinize tutar ekleyin ve ilerlemenizi grafikler üzerinden canlı izleyin.
 3. **Target AI ile Danışın**: Hedefinizin durumuna göre yapay zekadan kişiselleştirilmiş finansal strateji ve bütçe tavsiyesi alın.
 4. **Hatırlatıcıları Kurun**: Bildirim saatlerinizi ayarlayarak tasarruf alışkanlığınızı sürdürülebilir hale getirin.
+
+---
+
+## Lisans
+
+Bu proje MIT Lisansı ile lisanslanmıştır - detaylar için [LICENSE](LICENSE) dosyasına bakabilirsiniz.

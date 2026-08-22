@@ -2,6 +2,8 @@
   "name": "target",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
+  "author": "Orkun Eryılmaz",
   "type": "module",
   "scripts": {
     "dev": "vite",
