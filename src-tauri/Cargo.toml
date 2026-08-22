@@ -1,12 +1,12 @@
 [package]
-name = "goal-tracker"
+name = "Target"
 version = "0.1.0"
-description = "A simple desktop goal/savings tracker app"
+description = "Target - A desktop goal and savings tracker application"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "goal_tracker_lib"
+name = "target_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
