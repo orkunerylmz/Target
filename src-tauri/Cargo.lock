@@ -3,6 +3,23 @@
 version = 4
 
 [[package]]
+name = "Target"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "dotenvy",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1398,23 +1415,6 @@ name = "glob"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
-
-[[package]]
-name = "goal-tracker"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "dotenvy",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tokio",
- "uuid",
-]
 
 [[package]]
 name = "gobject-sys"
