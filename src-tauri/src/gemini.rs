@@ -1,13 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
-#[allow(dead_code)]
-pub struct GeminiRequest {
-    pub prompt: String,
-    pub api_key: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 struct GeminiApiRequest {
     contents: Vec<GeminiContent>,
 }
@@ -33,11 +26,23 @@ struct GeminiCandidate {
 }
 
 /// Calls the Gemini API with a prompt and returns the response text.
+/// Uses proven active models (gemini-2.5-flash-lite -> gemini-flash-lite-latest -> gemini-flash-latest).
 pub async fn call_gemini(api_key: &str, prompt: &str) -> Result<String, String> {
-    let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={}",
-        api_key
-    );
+    let configured_model = std::env::var("GEMINI_MODEL").ok();
+
+    // Active, high-speed free tier models with validated quotas
+    let mut models = vec![
+        "gemini-2.5-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-flash-latest",
+    ];
+
+    // If user provided a specific model in .env, try it first
+    if let Some(ref m) = configured_model {
+        if !models.contains(&m.as_str()) {
+            models.insert(0, m.as_str());
+        }
+    }
 
     let request_body = GeminiApiRequest {
         contents: vec![GeminiContent {
@@ -47,33 +52,64 @@ pub async fn call_gemini(api_key: &str, prompt: &str) -> Result<String, String> 
         }],
     };
 
-    let client = reqwest::Client::new();
-    let response = client
-        .post(&url)
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-        .map_err(|e| format!("Network error: {}", e))?;
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("İstek oluşturulamadı: {}", e))?;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("API error {}: {}", status, body));
+    let mut last_error = String::new();
+
+    for model in models {
+        let url = format!(
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent?key={}",
+            model,
+            api_key
+        );
+
+        let response = match client
+            .post(&url)
+            .header("Content-Type", "application/json")
+            .json(&request_body)
+            .send()
+            .await
+        {
+            Ok(res) => res,
+            Err(e) => {
+                last_error = format!("Ağ bağlantı hatası: {}", e);
+                continue;
+            }
+        };
+
+        if response.status().is_success() {
+            if let Ok(api_response) = response.json::<GeminiApiResponse>().await {
+                if let Some(text) = api_response
+                    .candidates
+                    .and_then(|c| c.into_iter().next())
+                    .and_then(|c| c.content)
+                    .and_then(|c| c.parts.into_iter().next())
+                    .map(|p| p.text)
+                {
+                    return Ok(text.trim().to_string());
+                }
+            }
+        } else {
+            let status = response.status();
+            if status.as_u16() == 429 {
+                last_error = "Gemini API istek kotası aşıldı. Lütfen kısa bir süre sonra tekrar deneyin.".to_string();
+            } else if status.as_u16() == 503 {
+                last_error = "Gemini sunucusu şu anda yoğun. Lütfen tekrar deneyin.".to_string();
+            } else {
+                let body = response.text().await.unwrap_or_default();
+                last_error = format!("API Hatası ({}): {}", status, body);
+            }
+            // Seamlessly try next available model in the fallback chain
+            continue;
+        }
     }
 
-    let api_response: GeminiApiResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("Parse error: {}", e))?;
-
-    let text = api_response
-        .candidates
-        .and_then(|c| c.into_iter().next())
-        .and_then(|c| c.content)
-        .and_then(|c| c.parts.into_iter().next())
-        .map(|p| p.text)
-        .unwrap_or_else(|| "Yanıt alınamadı.".to_string());
-
-    Ok(text)
+    Err(if last_error.is_empty() {
+        "Target AI yanıt üretemedi.".to_string()
+    } else {
+        last_error
+    })
 }
