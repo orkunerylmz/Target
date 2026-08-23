@@ -15,6 +15,28 @@ pub struct Goal {
     pub saved_amount: f64,
     pub target_date: Option<String>,
     pub icon: Option<String>,
+    #[serde(default)]
+    pub show_on_dashboard: Option<bool>,
+    #[serde(default)]
+    pub currency: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationSchedule {
+    pub time: String,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub label: Option<String>,
+    #[serde(default)]
+    pub repeat: Option<String>,
+    #[serde(default)]
+    pub goal_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,7 +45,20 @@ pub struct AppSettings {
     pub theme: String,
     pub currency: String,
     pub notifications_enabled: bool,
+    #[serde(default)]
     pub notification_times: Vec<String>,
+    #[serde(default)]
+    pub notification_schedules: Option<Vec<NotificationSchedule>>,
+    #[serde(default = "default_true")]
+    pub notify_goal_progress: bool,
+    #[serde(default = "default_true")]
+    pub notify_motivation_tips: bool,
+    #[serde(default = "default_true")]
+    pub notify_daily_summary: bool,
+    #[serde(default)]
+    pub disabled_goal_notification_ids: Option<Vec<String>>,
+    #[serde(default)]
+    pub gemini_api_key: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -32,11 +67,39 @@ impl Default for AppSettings {
             theme: "dark".to_string(),
             currency: "TRY".to_string(),
             notifications_enabled: true,
+            notify_goal_progress: true,
+            notify_motivation_tips: true,
+            notify_daily_summary: true,
+            disabled_goal_notification_ids: Some(Vec::new()),
+            gemini_api_key: None,
             notification_times: vec![
                 "09:00".to_string(),
                 "14:00".to_string(),
                 "21:30".to_string(),
             ],
+            notification_schedules: Some(vec![
+                NotificationSchedule {
+                    time: "09:00".to_string(),
+                    enabled: true,
+                    label: Some("Sabah Motivasyonu".to_string()),
+                    repeat: Some("Her gün".to_string()),
+                    goal_id: Some("all".to_string()),
+                },
+                NotificationSchedule {
+                    time: "14:00".to_string(),
+                    enabled: true,
+                    label: Some("Öğle Hedef Kontrolü".to_string()),
+                    repeat: Some("Her gün".to_string()),
+                    goal_id: Some("all".to_string()),
+                },
+                NotificationSchedule {
+                    time: "21:30".to_string(),
+                    enabled: true,
+                    label: Some("Günün Birikim Özeti".to_string()),
+                    repeat: Some("Her gün".to_string()),
+                    goal_id: Some("all".to_string()),
+                },
+            ]),
         }
     }
 }
@@ -44,10 +107,17 @@ impl Default for AppSettings {
 // ── File Paths ──
 
 fn get_data_dir(app: &AppHandle) -> PathBuf {
-    let data_dir = app
+    let base_dir = app
         .path()
         .app_data_dir()
         .expect("Failed to get app data dir");
+
+    let data_dir = if cfg!(debug_assertions) {
+        base_dir.join("dev_data")
+    } else {
+        base_dir
+    };
+
     if !data_dir.exists() {
         fs::create_dir_all(&data_dir).expect("Failed to create app data dir");
     }
