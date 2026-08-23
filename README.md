@@ -20,6 +20,10 @@
 
 **Target** is a modern desktop application that plans your savings, tracks your progress, and empowers you to reach your financial milestones faster with AI-powered strategies.
 
+<br />
+
+**[Features](#key-features) • [Screenshots](#application-screens) • [How to Use](#how-to-use) • [Tech Stack](#tech-stack) • [Getting Started](#getting-started)**
+
 </div>
 
 ---
@@ -117,6 +121,114 @@ Active goal cards with completion percentages, remaining days, required monthly 
 
 ---
 
+## Tech Stack
+
+Target is built with a high-performance desktop architecture leveraging Rust for native system integration and React 19 for a fluid, responsive UI.
+
+| Layer | Technology | Details |
+| :--- | :--- | :--- |
+| **Desktop Core** | [Tauri v2](https://v2.tauri.app/) + [Rust](https://www.rust-lang.org/) | Native desktop runtime, background notifications, and secure file I/O |
+| **Frontend UI** | [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) | Type-safe declarative components and reactive state |
+| **Build Tool** | [Vite 7](https://vite.dev/) | Lightning-fast HMR and optimized production bundling |
+| **AI Strategist** | [Google Gemini API](https://ai.google.dev/) (`gemini-2.5-flash-lite`) | Automated financial timeline calculation and strategic advice |
+| **Styling** | Custom Vanilla CSS / Design System | Curated dark mode, glassmorphism, responsive typography & micro-interactions |
+| **Native Plugins** | `@tauri-apps/plugin-notification`, `@tauri-apps/plugin-opener` | Native system notifications and browser URL dispatching |
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+Ensure you have **Node.js (v18+)** and **Rust** installed on your system:
+
+#### 1. Install Rust & Cargo
+```bash
+# macOS & Linux:
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Windows (PowerShell):
+winget install --id Rustlang.Rustup
+```
+
+#### 2. Install Node.js (LTS)
+```bash
+# macOS (Homebrew):
+brew install node
+
+# Linux (Ubuntu/Debian):
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs
+
+# Windows (PowerShell):
+winget install OpenJS.NodeJS.LTS
+```
+
+#### 3. Tauri System Dependencies
+- **macOS**:
+  ```bash
+  xcode-select --install
+  ```
+- **Linux (Ubuntu/Debian)**:
+  ```bash
+  sudo apt update && sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  ```
+- **Windows**: Microsoft C++ Build Tools & WebView2 (pre-installed on Windows 10/11)
+
+---
+
+### Installation & Execution
+
+#### 1. Clone the Repository
+```bash
+git clone https://github.com/orkunerylmz/Target.git
+cd Target
+```
+
+#### 2. Install Frontend Dependencies
+```bash
+npm install
+```
+
+#### 3. Configure Environment Variables
+Create a `.env` file in the root directory by copying `.env.example`:
+```bash
+cp .env.example .env
+```
+Open `.env` and configure your **Gemini API Key**:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash-lite
+```
+> [!NOTE]
+> You can obtain a free Google Gemini API key from [Google AI Studio](https://aistudio.google.com/).
+
+#### 4. Run in Development Mode
+Launch both the Vite dev server and the Tauri native desktop window with live Hot Module Replacement (HMR):
+```bash
+npm run tauri dev
+```
+
+#### 5. Build for Production
+Create an optimized, standalone desktop installer/executable (`.dmg` on macOS, `.msi` / `.exe` on Windows, `.deb` / `.AppImage` on Linux):
+```bash
+npm run tauri build
+```
+Built binaries will be located under `src-tauri/target/release/bundle/`.
+
+---
+
+### Available Scripts
+
+| Command | Description |
+| :--- | :--- |
+| `npm run tauri dev` | Starts the desktop application in development mode with HMR |
+| `npm run tauri build` | Bundles and builds the native production desktop application |
+| `npm run dev` | Starts only the Vite frontend dev server (browser preview on `http://localhost:1420`) |
+| `npm run build` | Compiles TypeScript and builds the frontend production bundle (`dist/`) |
+| `npm run preview` | Locally previews the compiled frontend build |
+
+---
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -137,6 +249,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ![Target Başlangıç](./screenshots/1.png)
 
 **Target**, hayalini kurduğunuz hedeflere ulaşmanız için birikimlerinizi planlayan, ilerlemenizi takip eden ve yapay zeka destekli stratejilerle finansal hedeflerinize daha hızlı ulaşmanızı sağlayan modern bir masaüstü uygulamasıdır.
+
+<br />
+
+**[Özellikler](#temel-özellikler) • [Ekran Görüntüleri](#uygulama-ekranları) • [Nasıl Kullanılır](#nasıl-kullanılır) • [Teknolojik Altyapı](#teknolojik-altyapı) • [Kurulum ve Çalıştırma](#kurulum-ve-çalıştırma)**
 
 </div>
 
@@ -235,6 +351,115 @@ Aktif hedeflerin listesi, tamamlanma yüzdeleri, kalan gün süreleri, gereken a
 
 ---
 
+## Teknolojik Altyapı
+
+Target, yüksek performanslı ve güvenli masaüstü deneyimi sunmak amacıyla native Rust çekirdeği ile React 19 tabanlı modern bir ön yüz mimarisi üzerine kurulmuştur.
+
+| Katman | Teknoloji | Açıklama |
+| :--- | :--- | :--- |
+| **Masaüstü Çekirdeği** | [Tauri v2](https://v2.tauri.app/) + [Rust](https://www.rust-lang.org/) | Native sistem entegrasyonu, arka plan bildirimleri ve güvenli yerel depolama |
+| **Kullanıcı Arayüzü** | [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) | Tip güvenli bileşenler ve reaktif durum yönetimi |
+| **Geliştirme & Derleme** | [Vite 7](https://vite.dev/) | Hızlı Hot Module Replacement (HMR) ve optimize edilmiş derleme |
+| **Yapay Zeka (Target AI)** | [Google Gemini API](https://ai.google.dev/) (`gemini-2.5-flash-lite`) | Hedef bazlı tasarruf stratejileri ve finansal analiz motoru |
+| **Stil ve Tasarım** | Özel Vanilla CSS Tasarım Sistemi | Koyu tema, cam efekti (glassmorphism), akıcı geçişler ve özel tipografi |
+| **Sistem Eklentileri** | `@tauri-apps/plugin-notification`, `@tauri-apps/plugin-opener` | Native sistem bildirimleri ve harici bağlantı yönlendirmeleri |
+
+---
+
+## Kurulum ve Çalıştırma
+
+### Gereksinimler
+
+Target uygulamasını çalıştırmadan önce sisteminizde **Node.js (v18+)** ve **Rust** kurulu olmalıdır:
+
+#### 1. Rust & Cargo Kurulumu
+```bash
+# macOS & Linux:
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Windows (PowerShell):
+winget install --id Rustlang.Rustup
+```
+
+#### 2. Node.js (LTS) Kurulumu
+```bash
+# macOS (Homebrew):
+brew install node
+
+# Linux (Ubuntu/Debian):
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs
+
+# Windows (PowerShell):
+winget install OpenJS.NodeJS.LTS
+```
+
+#### 3. İşletim Sistemi Bağımlılıkları (Tauri)
+- **macOS**:
+  ```bash
+  xcode-select --install
+  ```
+- **Linux (Ubuntu/Debian)**:
+  ```bash
+  sudo apt update && sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  ```
+- **Windows**: Microsoft C++ Build Tools ve WebView2 (Windows 10/11'de varsayılan olarak mevcuttur)
+
+---
+
+### Adım Adım Kurulum
+
+#### 1. Projeyi Klonlayın
+```bash
+git clone https://github.com/orkunerylmz/Target.git
+cd Target
+```
+
+#### 2. Bağımlılıkları Yükleyin
+```bash
+npm install
+```
+
+#### 3. Ortam Değişkenlerini (.env) Yapılandırın
+Kök dizindeki `.env.example` dosyasını `.env` olarak kopyalayın:
+```bash
+cp .env.example .env
+```
+`.env` dosyasını açarak **Gemini API Key** bilginizi ekleyin:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash-lite
+```
+> [!NOTE]
+> Ücretsiz Google Gemini API anahtarınızı [Google AI Studio](https://aistudio.google.com/) üzerinden alabilirsiniz.
+
+#### 4. Geliştirme Modunda Başlatın
+Masaüstü uygulamasını canlı yenileme (HMR) desteği ile başlatmak için:
+```bash
+npm run tauri dev
+```
+
+#### 5. Üretim İçin Derleyin (Paketleme)
+İşletim sisteminize uygun optimize edilmiş bağımsız masaüstü yükleyicisini (`.dmg`, `.msi` / `.exe`, `.deb` / `.AppImage`) oluşturmak için:
+```bash
+npm run tauri build
+```
+Derlenen dosyalar `src-tauri/target/release/bundle/` dizininde oluşturulur.
+
+---
+
+### Kullanılabilir Komutlar
+
+| Komut | Açıklama |
+| :--- | :--- |
+| `npm run tauri dev` | Masaüstü uygulamasını geliştirme modunda (HMR ile) çalıştırır |
+| `npm run tauri build` | Masaüstü uygulamasını üretim sürümü olarak derler ve paketler |
+| `npm run dev` | Yalnızca Vite ön yüz sunucusunu başlatır (`http://localhost:1420` üzerinden tarayıcı önizlemesi) |
+| `npm run build` | TypeScript tip kontrollerini yapar ve ön yüzü `dist/` klasörüne derler |
+| `npm run preview` | Derlenmiş ön yüz çıktısını yerel olarak önizler |
+
+---
+
 ## Lisans
 
 Bu proje MIT Lisansı ile lisanslanmıştır - detaylar için [LICENSE](LICENSE) dosyasına bakabilirsiniz.
+
