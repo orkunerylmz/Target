@@ -1,4 +1,5 @@
 import { Goal } from "../types/goal";
+import { CurrencyCode, convertCurrency, DEFAULT_RATES_IN_TRY } from "./currency";
 
 export function calculateRemaining(goal: Goal): number {
   return Math.max(goal.targetAmount - goal.savedAmount, 0);
@@ -23,26 +24,48 @@ export function calculateMonthsRemaining(targetDate?: string): number | null {
   if (!targetDate) return null;
   const days = calculateDaysRemaining(targetDate);
   if (days === null || days <= 0) return 0;
-  return Math.max(Math.ceil(days / 30), 1);
+  return Math.max(days / 30.4, 1.0);
 }
 
 export function calculateMonthlyRequired(
   remaining: number,
   targetDate?: string
 ): number | null {
-  const months = calculateMonthsRemaining(targetDate);
-  if (months === null || months <= 0) return null;
+  const days = calculateDaysRemaining(targetDate);
+  if (days === null || days <= 0) return null;
+  const months = Math.max(days / 30.4, 1.0);
   return remaining / months;
 }
 
-export function getTotalStats(goals: Goal[]) {
+export function getConvertedTotalStats(
+  goals: Goal[],
+  viewCurrency: CurrencyCode = "TRY",
+  ratesInTry: Record<CurrencyCode, number> = DEFAULT_RATES_IN_TRY
+) {
+  let totalTarget = 0;
+  let totalSaved = 0;
+  let totalRemaining = 0;
+
+  for (const g of goals) {
+    const goalCurrency = (g.currency || "TRY") as CurrencyCode;
+    const targetInView = convertCurrency(g.targetAmount, goalCurrency, viewCurrency, ratesInTry);
+    const savedInView = convertCurrency(g.savedAmount, goalCurrency, viewCurrency, ratesInTry);
+    const rem = Math.max(g.targetAmount - g.savedAmount, 0);
+    const remInView = convertCurrency(rem, goalCurrency, viewCurrency, ratesInTry);
+
+    totalTarget += targetInView;
+    totalSaved += savedInView;
+    totalRemaining += remInView;
+  }
+
   return {
     totalGoals: goals.length,
-    totalTarget: goals.reduce((sum, g) => sum + g.targetAmount, 0),
-    totalSaved: goals.reduce((sum, g) => sum + g.savedAmount, 0),
-    totalRemaining: goals.reduce(
-      (sum, g) => sum + calculateRemaining(g),
-      0
-    ),
+    totalTarget: Math.round(totalTarget * 100) / 100,
+    totalSaved: Math.round(totalSaved * 100) / 100,
+    totalRemaining: Math.round(totalRemaining * 100) / 100,
   };
+}
+
+export function getTotalStats(goals: Goal[]) {
+  return getConvertedTotalStats(goals, "TRY");
 }
