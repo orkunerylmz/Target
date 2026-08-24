@@ -5,4 +5,6 @@ export interface Goal {
   savedAmount: number;
   targetDate?: string;
   icon?: string;
+  showOnDashboard?: boolean;
+  currency?: "TRY" | "USD" | "EUR";
 }
