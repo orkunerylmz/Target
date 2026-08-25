@@ -65,6 +65,18 @@ export const CloseIcon: React.FC<IconProps> = ({ size = 18, className = "" }) =>
   </svg>
 );
 
+export const ChevronUpIcon: React.FC<IconProps> = ({ size = 18, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="18 15 12 9 6 15" />
+  </svg>
+);
+
+export const ChevronDownIcon: React.FC<IconProps> = ({ size = 18, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
 export const SparklesIcon: React.FC<IconProps> = ({ size = 20, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
@@ -89,12 +101,35 @@ export const TrendDownIcon: React.FC<IconProps> = ({ size = 20, className = "" }
   </svg>
 );
 
-export const MoneyIcon: React.FC<IconProps> = ({ size = 20, className = "" }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <line x1="12" y1="1" x2="12" y2="23" />
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-  </svg>
-);
+export const MoneyIcon: React.FC<IconProps & { currency?: "TRY" | "USD" | "EUR" }> = ({
+  size = 22,
+  className = "",
+  currency = "TRY",
+}) => {
+  const symbol = currency === "USD" ? "$" : currency === "EUR" ? "€" : "₺";
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      className={className}
+      style={{ display: "inline-block", verticalAlign: "middle" }}
+    >
+      <text
+        x="12"
+        y="19"
+        textAnchor="middle"
+        fontSize="23"
+        fontWeight="700"
+        fill="currentColor"
+        fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      >
+        {symbol}
+      </text>
+    </svg>
+  );
+};
 
 export const MoonIcon: React.FC<IconProps> = ({ size = 18, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -127,5 +162,50 @@ export const InfoIcon: React.FC<IconProps> = ({ size = 18, className = "" }) => 
 export const CheckIcon: React.FC<IconProps> = ({ size = 16, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+export const PinIcon: React.FC<IconProps & { filled?: boolean }> = ({ size = 16, className = "", filled = false }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <line x1="12" y1="17" x2="12" y2="22" />
+    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.89A2 2 0 0 1 15 10.77V5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5.77a2 2 0 0 1-1.11 1.79l-1.78.89A2 2 0 0 0 5 15.24Z" />
+  </svg>
+);
+
+export const RefreshIcon: React.FC<IconProps> = ({ size = 14, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+    <path d="M21 3v5h-5" />
+    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+    <path d="M8 16H3v5" />
+  </svg>
+);
+
+export const EyeIcon: React.FC<IconProps> = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+export const EyeOffIcon: React.FC<IconProps> = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
+
+export const KeyIcon: React.FC<IconProps> = ({ size = 16, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="m21 2-2 2m-1.5 1.5L14 9l-2-2-4 4-2-2-4 4a5 5 0 1 0 7.07 7.07l9.43-9.43A3 3 0 0 0 21 2Z" />
+    <circle cx="7.5" cy="16.5" r=".5" fill="currentColor" />
+  </svg>
+);
+
+export const ExternalLinkIcon: React.FC<IconProps> = ({ size = 14, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
   </svg>
 );
