@@ -22,7 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate }) => {
         <span className="sidebar-logo">
           <TargetIcon size={24} />
         </span>
-        <h1 className="sidebar-title">Goal Tracker</h1>
+        <h1 className="sidebar-title">Target</h1>
       </div>
       <nav className="sidebar-nav">
         {NAV_ITEMS.map((item) => (
