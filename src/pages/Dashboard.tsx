@@ -1,19 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { Goal } from "../types/goal";
 import { AppSettings } from "../types/settings";
-import { getTotalStats } from "../utils/calculations";
-import { formatCurrency } from "../utils/currency";
+import { getConvertedTotalStats } from "../utils/calculations";
+import {
+  formatCurrency,
+  formatInputNumber,
+  parseInputNumber,
+  CurrencyCode,
+  convertCurrency,
+  fetchExchangeRatesInTRY,
+  DEFAULT_RATES_IN_TRY,
+} from "../utils/currency";
 import GoalCard from "../components/GoalCard";
 import Modal from "../components/Modal";
+import { OverallProgressChart } from "../components/Charts";
+import FormattedAiMessage from "../components/FormattedAiMessage";
+import { formatTurkishDate } from "../utils/date";
 import {
-  TargetIcon,
-  MoneyIcon,
-  TrendUpIcon,
-  TrendDownIcon,
   SparklesIcon,
+  PinIcon,
+  RefreshIcon,
+  CloseIcon,
   PlusIcon,
+  TargetIcon,
 } from "../components/Icons";
 import { invoke } from "@tauri-apps/api/core";
+import { aiService } from "../services/aiService";
 
 interface DashboardProps {
   goals: Goal[];
@@ -22,21 +34,95 @@ interface DashboardProps {
   onNavigate: (page: "goals") => void;
 }
 
+const emptyGoal: Omit<Goal, "id"> = {
+  name: "",
+  targetAmount: 0,
+  savedAmount: 0,
+  targetDate: undefined,
+  showOnDashboard: true,
+  currency: "TRY",
+};
+
+const CURRENCIES: CurrencyCode[] = ["TRY", "USD", "EUR"];
+
 const Dashboard: React.FC<DashboardProps> = ({
   goals,
   settings,
   onGoalsChange,
   onNavigate,
 }) => {
-  const stats = getTotalStats(goals);
-  const featuredGoal = goals.length > 0 ? goals[0] : null;
+  // Currency state
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(settings.currency || "TRY");
+  const [ratesInTry, setRatesInTry] = useState<Record<CurrencyCode, number>>(DEFAULT_RATES_IN_TRY);
 
+  useEffect(() => {
+    fetchExchangeRatesInTRY().then((data) => {
+      setRatesInTry({
+        TRY: 1.0,
+        USD: data.usdInTry,
+        EUR: data.eurInTry,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (settings.currency) {
+      setSelectedCurrency(settings.currency);
+    }
+  }, [settings.currency]);
+
+  // Overall calculated portfolio values converted to selected viewing currency
+  const stats = getConvertedTotalStats(goals, selectedCurrency, ratesInTry);
+  const displaySaved = stats.totalSaved;
+  const displayTarget = stats.totalTarget;
+  const displayRemaining = stats.totalRemaining;
+
+  const overallPct = stats.totalTarget > 0
+    ? Math.min(100, Math.round((stats.totalSaved / stats.totalTarget) * 100))
+    : 0;
+
+  // Filter goals pinned to dashboard
+  const dashboardGoals = goals.filter((g) => g.showOnDashboard !== false);
+
+  // Target AI state
+  const [aiMessage, setAiMessage] = useState<string>(
+    () => localStorage.getItem(`target_ai_message_${selectedCurrency}`) || localStorage.getItem("target_ai_message") || ""
+  );
+  const [aiLoading, setAiLoading] = useState<boolean>(() => aiService.isLoading("main"));
+
+  useEffect(() => {
+    const unsubscribe = aiService.subscribe("main", (loading, text) => {
+      setAiLoading(loading);
+      setAiMessage(text);
+    });
+    setAiLoading(aiService.isLoading("main"));
+    const cached = localStorage.getItem(`target_ai_message_${selectedCurrency}`) || localStorage.getItem("target_ai_message") || "";
+    setAiMessage(cached);
+    return () => unsubscribe();
+  }, [selectedCurrency]);
+
+  const handleCloseAi = () => {
+    setAiMessage("");
+    aiService.clearMainAiAdvice(selectedCurrency);
+  };
+
+  const handleGetAiMotivation = async () => {
+    aiService.requestMainAiAdvice(selectedCurrency, ratesInTry);
+  };
+
+  // Add Savings modal state
   const [savingsGoal, setSavingsGoal] = useState<Goal | null>(null);
-  const [savingsAmount, setSavingsAmount] = useState("");
+  const [savingsMain, setSavingsMain] = useState<string>("");
+  const [savingsCents, setSavingsCents] = useState<string>("");
 
-  // AI Motivation
-  const [aiMessage, setAiMessage] = useState<string>("");
-  const [aiLoading, setAiLoading] = useState(false);
+  // Edit Goal modal state
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [editFormData, setEditFormData] = useState<Omit<Goal, "id">>(emptyGoal);
+  const [targetMain, setTargetMain] = useState<number | "">("");
+  const [targetCents, setTargetCents] = useState<string>("");
+  const [savedMain, setSavedMain] = useState<number | "">("");
+  const [savedCents, setSavedCents] = useState<string>("");
+
   const [aiAvailable, setAiAvailable] = useState(false);
 
   useEffect(() => {
@@ -51,180 +137,565 @@ const Dashboard: React.FC<DashboardProps> = ({
     checkAi();
   }, []);
 
+  const openEditModal = (goal: Goal) => {
+    setEditingGoal(goal);
+    setEditFormData({
+      name: goal.name,
+      targetAmount: goal.targetAmount,
+      savedAmount: goal.savedAmount,
+      targetDate: goal.targetDate,
+      icon: goal.icon,
+      showOnDashboard: goal.showOnDashboard !== false,
+      currency: goal.currency || settings.currency || "TRY",
+    });
+
+    const tMain = Math.floor(goal.targetAmount);
+    const tCents = Math.round((goal.targetAmount % 1) * 100);
+    setTargetMain(tMain > 0 ? tMain : "");
+    setTargetCents(tCents > 0 ? tCents.toString().padStart(2, "0") : "");
+
+    const sMain = Math.floor(goal.savedAmount);
+    const sCents = Math.round((goal.savedAmount % 1) * 100);
+    setSavedMain(sMain > 0 ? sMain : "");
+    setSavedCents(sCents > 0 ? sCents.toString().padStart(2, "0") : "");
+  };
+
+  const handleEditCurrencySwitch = (newCurr: CurrencyCode) => {
+    const oldCurr = (editFormData.currency || "TRY") as CurrencyCode;
+    if (newCurr === oldCurr) return;
+
+    // Convert target amount
+    const currentTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseInt(targetCents || "0", 10) / 100);
+    if (currentTarget > 0) {
+      const converted = convertCurrency(currentTarget, oldCurr, newCurr, ratesInTry);
+      const tMain = Math.floor(converted);
+      const tCents = Math.round((converted % 1) * 100);
+      setTargetMain(tMain > 0 ? tMain : "");
+      setTargetCents(tCents > 0 ? tCents.toString().padStart(2, "0") : "");
+    }
+
+    // Convert saved amount
+    const currentSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseInt(savedCents || "0", 10) / 100);
+    if (currentSaved > 0) {
+      const converted = convertCurrency(currentSaved, oldCurr, newCurr, ratesInTry);
+      const sMain = Math.floor(converted);
+      const sCents = Math.round((converted % 1) * 100);
+      setSavedMain(sMain > 0 ? sMain : "");
+      setSavedCents(sCents > 0 ? sCents.toString().padStart(2, "0") : "");
+    }
+
+    setEditFormData({ ...editFormData, currency: newCurr });
+  };
+
+  const handleSaveEditedGoal = async () => {
+    if (!editingGoal) return;
+    const fullTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseInt(targetCents || "0", 10) / 100);
+    const fullSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseInt(savedCents || "0", 10) / 100);
+
+    if (!editFormData.name || fullTarget <= 0) return;
+
+    const payload = {
+      ...editFormData,
+      targetAmount: fullTarget,
+      savedAmount: fullSaved,
+      currency: editFormData.currency || settings.currency || "TRY",
+    };
+
+    const updated = goals.map((g) =>
+      g.id === editingGoal.id ? { ...g, ...payload } : g
+    );
+
+    await invoke("save_goals", { goals: updated });
+    onGoalsChange(updated);
+    setEditingGoal(null);
+    setTargetMain("");
+    setTargetCents("");
+    setSavedMain("");
+    setSavedCents("");
+  };
+
   const handleDelete = async (goalId: string) => {
     const updated = goals.filter((g) => g.id !== goalId);
     await invoke("save_goals", { goals: updated });
     onGoalsChange(updated);
   };
 
+  const handleToggleDashboard = async (goal: Goal) => {
+    const updated = goals.map((g) =>
+      g.id === goal.id
+        ? { ...g, showOnDashboard: !g.showOnDashboard }
+        : g
+    );
+    await invoke("save_goals", { goals: updated });
+    onGoalsChange(updated);
+  };
+
   const handleAddSavings = async () => {
-    if (!savingsGoal || !savingsAmount) return;
-    const amount = parseFloat(savingsAmount);
-    if (isNaN(amount) || amount <= 0) return;
+    if (!savingsGoal) return;
+    const mainAmount = parseInputNumber(savingsMain);
+    const centsAmount = parseInt(savingsCents || "0", 10) / 100;
+    const totalAdd = mainAmount + centsAmount;
+    if (totalAdd <= 0) return;
 
     const updated = goals.map((g) =>
       g.id === savingsGoal.id
-        ? { ...g, savedAmount: g.savedAmount + amount }
+        ? { ...g, savedAmount: g.savedAmount + totalAdd }
         : g
     );
     await invoke("save_goals", { goals: updated });
     onGoalsChange(updated);
     setSavingsGoal(null);
-    setSavingsAmount("");
-  };
-
-  const handleGetAiMotivation = async () => {
-    setAiLoading(true);
-    setAiMessage("");
-    try {
-      const response = await invoke<string>("get_ai_motivation");
-      setAiMessage(response);
-    } catch (err: any) {
-      setAiMessage(err?.toString() || "AI yanıt veremedi.");
-    }
-    setAiLoading(false);
+    setSavingsMain("");
+    setSavingsCents("");
   };
 
   return (
-    <div className="page dashboard-page">
-      <div className="page-header">
-        <h2 className="page-title">Dashboard</h2>
-        <button className="btn btn-primary" onClick={() => onNavigate("goals")}>
-          <PlusIcon size={16} />
-          <span>Yeni Hedef</span>
-        </button>
-      </div>
+    <div className="page dashboard-page clean-dashboard">
+      {/* ── Page Header ── */}
+      <div className="clean-header">
+        <div className="clean-header-left">
+          <h2 className="clean-title">Genel Bakış</h2>
+          <span className="clean-subtitle">
+            {new Date().toLocaleDateString("tr-TR", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+              weekday: "long",
+            })}
+          </span>
+        </div>
 
-      {/* Stats Cards */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <span className="stat-icon">
-            <TargetIcon size={24} />
-          </span>
-          <div className="stat-info">
-            <span className="stat-value">{stats.totalGoals}</span>
-            <span className="stat-label">Toplam Hedef</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <span className="stat-icon">
-            <MoneyIcon size={24} />
-          </span>
-          <div className="stat-info">
-            <span className="stat-value">
-              {formatCurrency(stats.totalTarget, settings.currency)}
-            </span>
-            <span className="stat-label">Toplam Hedef Tutarı</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <span className="stat-icon">
-            <TrendUpIcon size={24} />
-          </span>
-          <div className="stat-info">
-            <span className="stat-value">
-              {formatCurrency(stats.totalSaved, settings.currency)}
-            </span>
-            <span className="stat-label">Toplam Birikim</span>
-          </div>
-        </div>
-        <div className="stat-card">
-          <span className="stat-icon">
-            <TrendDownIcon size={24} />
-          </span>
-          <div className="stat-info">
-            <span className="stat-value">
-              {formatCurrency(stats.totalRemaining, settings.currency)}
-            </span>
-            <span className="stat-label">Toplam Kalan</span>
+        <div className="clean-header-actions">
+          {/* Currency Switcher */}
+          <div className="clean-currency-toggle">
+            {CURRENCIES.map((curr) => (
+              <button
+                key={curr}
+                type="button"
+                className={`clean-curr-btn ${selectedCurrency === curr ? "active" : ""}`}
+                onClick={() => setSelectedCurrency(curr)}
+              >
+                {curr}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* AI Motivation Section */}
+      {/* ── 3 Primary Metric Cards (Airy, Minimal & Clear) ── */}
+      <div className="clean-metrics-grid">
+        {/* 1. Toplam Birikim */}
+        <div className="clean-metric-card highlight-card">
+          <div className="clean-metric-top">
+            <span className="clean-metric-label">Toplam Birikim</span>
+            <span className="clean-pct-badge">%{overallPct}</span>
+          </div>
+          <div className="clean-metric-value-row">
+            <span className="clean-metric-value">{formatCurrency(displaySaved, selectedCurrency)}</span>
+          </div>
+          <div className="clean-metric-progress-track">
+            <div
+              className="clean-metric-progress-fill"
+              style={{ width: `${overallPct}%` }}
+            />
+          </div>
+        </div>
+
+        {/* 2. Hedeflenen Tutar */}
+        <div className="clean-metric-card">
+          <div className="clean-metric-top">
+            <span className="clean-metric-label">Hedeflenen Tutar</span>
+            <span className="clean-count-badge">{goals.length} Hedef</span>
+          </div>
+          <div className="clean-metric-value-row">
+            <span className="clean-metric-value">{formatCurrency(displayTarget, selectedCurrency)}</span>
+          </div>
+          <span className="clean-metric-sub">
+            {dashboardGoals.length} hedef ana ekrana sabitlendi
+          </span>
+        </div>
+
+        {/* 3. Kalan Miktar */}
+        <div className="clean-metric-card">
+          <div className="clean-metric-top">
+            <span className="clean-metric-label">Kalan Mesafe</span>
+          </div>
+          <div className="clean-metric-value-row">
+            <span className="clean-metric-value">{formatCurrency(displayRemaining, selectedCurrency)}</span>
+          </div>
+          <span className="clean-metric-sub">
+            Hedeflerin tamamlanmasına kalan bütçe
+          </span>
+        </div>
+      </div>
+
+      {/* ── Target AI Assistant (Quiet & Minimal) ── */}
       {aiAvailable && (
-        <div className="ai-section">
-          <div className="ai-header">
-            <span className="ai-icon">
-              <SparklesIcon size={22} />
-            </span>
-            <h3>Gemini AI Motivasyon</h3>
+        <div className="clean-ai-card">
+          <div className="clean-ai-header">
+            <div className="clean-ai-title-wrap">
+              <span className="clean-ai-icon">
+                <SparklesIcon size={16} />
+              </span>
+              <span className="clean-ai-title">Target AI</span>
+            </div>
+
+            <div className="clean-ai-btn-group">
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm clean-ai-action-btn"
+                onClick={handleGetAiMotivation}
+                disabled={aiLoading}
+              >
+                {aiLoading ? (
+                  <>
+                    <RefreshIcon size={12} className="spin-animate" />
+                    <span>Analiz Ediliyor...</span>
+                  </>
+                ) : aiMessage ? (
+                  <>
+                    <RefreshIcon size={12} />
+                    <span>Yenile</span>
+                  </>
+                ) : (
+                  <>
+                    <SparklesIcon size={13} />
+                    <span>Analiz Et</span>
+                  </>
+                )}
+              </button>
+
+              {aiMessage && !aiLoading && (
+                <button
+                  type="button"
+                  className="btn-icon clean-ai-close"
+                  onClick={handleCloseAi}
+                  title="Kapat"
+                >
+                  <CloseIcon size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {aiLoading ? (
+            <div className="clean-ai-loading">
+              <span className="loading-shimmer" />
+              <span>Target AI portföyünüzü analiz ediyor ve stratejinizi hazırlıyor...</span>
+            </div>
+          ) : aiMessage ? (
+            <div className="clean-ai-content">
+              <FormattedAiMessage text={aiMessage} />
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* ── Analytics Chart (Shown when goals exist) ── */}
+      {goals.length > 0 && (
+        <OverallProgressChart goals={goals} currency={selectedCurrency} ratesInTry={ratesInTry} />
+      )}
+
+      {/* ── Pinned Goals Section / Empty State ── */}
+      <div className="clean-goals-section">
+        {goals.length > 0 ? (
+          <>
+            <div className="section-header">
+              <h3 className="section-title">
+                Dashboard Hedefleri ({dashboardGoals.length})
+              </h3>
+              <button
+                className="btn-link"
+                onClick={() => onNavigate("goals")}
+              >
+                Tüm Hedefleri Yönet
+              </button>
+            </div>
+
+            {dashboardGoals.length > 0 ? (
+              <div className="goals-list">
+                {dashboardGoals.map((goal) => (
+                  <GoalCard
+                    key={goal.id}
+                    goal={goal}
+                    currency={selectedCurrency}
+                    ratesInTry={ratesInTry}
+                    onEdit={openEditModal}
+                    onDelete={handleDelete}
+                    onAddSavings={(g) => {
+                      setSavingsGoal(g);
+                      setSavingsMain("");
+                      setSavingsCents("");
+                    }}
+                    onToggleDashboard={handleToggleDashboard}
+                    variant="default"
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state-banner" onClick={() => onNavigate("goals")}>
+                <div className="empty-state-banner-left">
+                  <span className="empty-state-banner-icon">
+                    <PinIcon size={18} />
+                  </span>
+                  <div className="empty-state-banner-text">
+                    <span className="empty-state-banner-title">Dashboard için hedef sabitlenmedi</span>
+                    <span className="empty-state-banner-desc">Hedefler sayfasındaki raptiye ikonuna tıklayarak hedeflerinizi buraya sabitleyebilirsiniz.</span>
+                  </div>
+                </div>
+                <button className="btn btn-secondary btn-sm" onClick={(e) => { e.stopPropagation(); onNavigate("goals"); }}>
+                  <span>Hedefleri Yönet</span>
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          /* High-End Clean Onboarding State */
+          <div className="clean-empty-box" onClick={() => onNavigate("goals")}>
+            <div className="clean-empty-icon">
+              <TargetIcon size={28} />
+            </div>
+            <h3 className="clean-empty-title">Henüz Birikim Hedefiniz Yok</h3>
+            <p className="clean-empty-desc">
+              Hedefinizi belirleyin, birikimlerinizi düzenli takip edin ve yapay zeka analizleriyle motive kalın.
+            </p>
             <button
-              className="btn btn-secondary btn-sm"
-              onClick={handleGetAiMotivation}
-              disabled={aiLoading}
+              className="btn btn-primary btn-sm clean-empty-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate("goals");
+              }}
             >
-              {aiLoading ? "Düşünülüyor..." : "Motive Et"}
+              <PlusIcon size={15} />
+              <span>İlk Hedefinizi Ekleyin</span>
             </button>
           </div>
-          {aiMessage && (
-            <div className="ai-message">
-              <p>{aiMessage}</p>
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Featured Goal */}
-      {featuredGoal && (
-        <div className="featured-section">
-          <h3 className="section-title">Ana Hedef</h3>
-          <GoalCard
-            goal={featuredGoal}
-            currency={settings.currency}
-            onEdit={() => onNavigate("goals")}
-            onDelete={handleDelete}
-            onAddSavings={setSavingsGoal}
-            variant="featured"
-          />
-        </div>
-      )}
-
-      {goals.length === 0 && (
-        <div className="empty-state">
-          <span className="empty-icon">
-            <TargetIcon size={48} />
-          </span>
-          <p>Henüz bir hedef oluşturmadınız.</p>
-          <button className="btn btn-primary" onClick={() => onNavigate("goals")}>
-            <PlusIcon size={16} />
-            <span>İlk Hedefinizi Oluşturun</span>
-          </button>
-        </div>
-      )}
-
-      {/* Add Savings Modal */}
+      {/* ── Edit Goal Modal on Dashboard ── */}
       <Modal
-        isOpen={savingsGoal !== null}
+        isOpen={editingGoal !== null}
         onClose={() => {
-          setSavingsGoal(null);
-          setSavingsAmount("");
+          setEditingGoal(null);
+          setEditFormData(emptyGoal);
+          setTargetMain("");
+          setTargetCents("");
+          setSavedMain("");
+          setSavedCents("");
         }}
-        title={`Birikim Ekle – ${savingsGoal?.name || ""}`}
+        title="Hedefi Düzenle"
       >
         <div className="form-group">
-          <label>Eklenecek Tutar</label>
+          <label>Hedef Adı</label>
           <input
-            type="number"
+            type="text"
             className="form-input"
-            placeholder="Örn: 2500"
-            value={savingsAmount}
-            onChange={(e) => setSavingsAmount(e.target.value)}
+            placeholder="Hedef adını girin"
+            value={editFormData.name}
+            onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
             autoFocus
           />
         </div>
+
+        {/* Currency Selector in Modal */}
+        <div className="form-group">
+          <label>Hedef Para Birimi</label>
+          <div className="modal-currency-selector">
+            {(["TRY", "USD", "EUR"] as const).map((curr) => (
+              <button
+                key={curr}
+                type="button"
+                className={`modal-currency-btn ${(editFormData.currency || "TRY") === curr ? "active" : ""}`}
+                onClick={() => handleEditCurrencySwitch(curr)}
+              >
+                {curr === "TRY" ? "₺ TRY" : curr === "USD" ? "$ USD" : "€ EUR"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Hedef Tutar ({editFormData.currency || "TRY"})</label>
+            <div className="amount-combined-input">
+              <input
+                type="text"
+                inputMode="numeric"
+                className="amount-main-field"
+                placeholder="0"
+                value={targetMain !== "" ? formatInputNumber(targetMain, editFormData.currency || "TRY") : ""}
+                onChange={(e) => {
+                  const val = parseInputNumber(e.target.value);
+                  setTargetMain(val > 0 ? val : "");
+                }}
+              />
+              <span className="amount-pipe-divider" />
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={2}
+                className="amount-cents-field"
+                placeholder="00"
+                value={targetCents}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setTargetCents(val);
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Mevcut Birikim ({editFormData.currency || "TRY"})</label>
+            <div className="amount-combined-input">
+              <input
+                type="text"
+                inputMode="numeric"
+                className="amount-main-field"
+                placeholder="0"
+                value={savedMain !== "" ? formatInputNumber(savedMain, editFormData.currency || "TRY") : ""}
+                onChange={(e) => {
+                  const val = parseInputNumber(e.target.value);
+                  setSavedMain(val > 0 ? val : "");
+                }}
+              />
+              <span className="amount-pipe-divider" />
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={2}
+                className="amount-cents-field"
+                placeholder="00"
+                value={savedCents}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  setSavedCents(val);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <div className="form-label-row">
+            <label>Hedef Tarih (İsteğe Bağlı)</label>
+            {editFormData.targetDate && (
+              <span className="verbal-date-hint">{formatTurkishDate(editFormData.targetDate)}</span>
+            )}
+          </div>
+          <input
+            type="date"
+            className="form-input"
+            value={editFormData.targetDate || ""}
+            onChange={(e) => setEditFormData({ ...editFormData, targetDate: e.target.value || undefined })}
+          />
+        </div>
+
         <div className="form-actions">
           <button
+            type="button"
             className="btn btn-secondary"
             onClick={() => {
-              setSavingsGoal(null);
-              setSavingsAmount("");
+              setEditingGoal(null);
+              setEditFormData(emptyGoal);
+              setTargetMain("");
+              setTargetCents("");
+              setSavedMain("");
+              setSavedCents("");
             }}
           >
             İptal
           </button>
-          <button className="btn btn-primary" onClick={handleAddSavings}>
-            Ekle
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleSaveEditedGoal}
+          >
+            Değişiklikleri Kaydet
+          </button>
+        </div>
+      </Modal>
+
+      {/* ── Add Savings Modal ── */}
+      <Modal
+        isOpen={savingsGoal !== null}
+        onClose={() => {
+          setSavingsGoal(null);
+          setSavingsMain("");
+          setSavingsCents("");
+        }}
+        title={`Birikim Ekle: ${savingsGoal?.name || ""}`}
+      >
+        <div className="form-group">
+          <label>Eklenecek Tutar ({savingsGoal?.currency || selectedCurrency || "TRY"})</label>
+          <div className="amount-combined-input">
+            <input
+              type="text"
+              inputMode="numeric"
+              className="amount-main-field"
+              placeholder="0"
+              value={formatInputNumber(savingsMain)}
+              onChange={(e) => {
+                const val = parseInputNumber(e.target.value);
+                setSavingsMain(val > 0 ? val.toString() : "");
+              }}
+              autoFocus
+            />
+            <span className="amount-pipe-divider" />
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={2}
+              className="amount-cents-field"
+              placeholder="00"
+              value={savingsCents}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, "");
+                setSavingsCents(val);
+              }}
+            />
+          </div>
+        </div>
+
+        {savingsGoal && (
+          <div className="savings-preview">
+            <div className="savings-preview-row">
+              <span>Mevcut:</span>
+              <span className="value">{formatCurrency(savingsGoal.savedAmount, selectedCurrency)}</span>
+            </div>
+            <div className="savings-preview-row">
+              <span>Yeni Toplam:</span>
+              <span className="value highlight">
+                {formatCurrency(
+                  savingsGoal.savedAmount +
+                    parseInputNumber(savingsMain) +
+                    (parseInt(savingsCents || "0", 10) / 100),
+                  selectedCurrency
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              setSavingsGoal(null);
+              setSavingsMain("");
+              setSavingsCents("");
+            }}
+          >
+            İptal
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={handleAddSavings}
+          >
+            Birikimi Kaydet
           </button>
         </div>
       </Modal>
