@@ -16,7 +16,7 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
 
-  // Load data on mount
+  // Load data on mount and window focus
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -28,10 +28,14 @@ const App: React.FC = () => {
         setSettings(loadedSettings);
       } catch (err) {
         console.error("Failed to load data:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
+
     loadData();
+    window.addEventListener("focus", loadData);
+    return () => window.removeEventListener("focus", loadData);
   }, []);
 
   // Apply theme
@@ -73,6 +77,7 @@ const App: React.FC = () => {
         return (
           <Notifications
             settings={settings}
+            goals={goals}
             onSettingsChange={setSettings}
           />
         );
@@ -80,7 +85,9 @@ const App: React.FC = () => {
         return (
           <Settings
             settings={settings}
+            goals={goals}
             onSettingsChange={setSettings}
+            onGoalsChange={setGoals}
           />
         );
     }
