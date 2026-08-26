@@ -1,26 +1,42 @@
 import React, { useState, useEffect } from "react";
 import { AppSettings } from "../types/settings";
-import { MoonIcon, SunIcon, SparklesIcon, CheckIcon, InfoIcon } from "../components/Icons";
+import { Goal } from "../types/goal";
+import {
+  MoonIcon,
+  SunIcon,
+  SparklesIcon,
+  RefreshIcon,
+} from "../components/Icons";
+import { fetchExchangeRatesInTRY, ExchangeRateInfo, CurrencyCode, DEFAULT_RATES_IN_TRY } from "../utils/currency";
 import { invoke } from "@tauri-apps/api/core";
 
 interface SettingsProps {
   settings: AppSettings;
+  goals?: Goal[];
   onSettingsChange: (settings: AppSettings) => void;
+  onGoalsChange?: (goals: Goal[]) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
-  const [aiAvailable, setAiAvailable] = useState<boolean>(false);
+const Settings: React.FC<SettingsProps> = ({
+  settings,
+  onSettingsChange,
+}) => {
+  const [converting, setConverting] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRateInfo | null>(null);
+  const [ratesLoading, setRatesLoading] = useState(false);
+
+  const loadRates = async () => {
+    setRatesLoading(true);
+    try {
+      const data = await fetchExchangeRatesInTRY();
+      setExchangeRates(data);
+    } finally {
+      setRatesLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const checkAi = async () => {
-      try {
-        const available = await invoke<boolean>("check_gemini_available");
-        setAiAvailable(available);
-      } catch {
-        setAiAvailable(false);
-      }
-    };
-    checkAi();
+    loadRates();
   }, []);
 
   const saveSettings = async (updated: AppSettings) => {
@@ -32,8 +48,15 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
     await saveSettings({ ...settings, theme });
   };
 
-  const handleCurrencyChange = async (currency: "TRY" | "USD" | "EUR") => {
-    await saveSettings({ ...settings, currency });
+  const handleCurrencyChange = async (newCurrency: CurrencyCode) => {
+    if (newCurrency === settings.currency || converting) return;
+
+    setConverting(true);
+    try {
+      await saveSettings({ ...settings, currency: newCurrency });
+    } finally {
+      setConverting(false);
+    }
   };
 
   const handleNotificationsToggle = async () => {
@@ -74,22 +97,67 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         </div>
       </div>
 
-      {/* Currency */}
+      {/* Currency with In-Button Rates */}
       <div className="settings-section">
-        <h3 className="settings-section-title">Para Birimi</h3>
-        <div className="settings-options">
-          {(["TRY", "USD", "EUR"] as const).map((cur) => (
+        <div className="settings-section-header">
+          <h3 className="settings-section-title">Para Birimi</h3>
+          <div className="currency-status-pill">
+            <span className="live-dot" />
+            <span>Canlı Kurlar</span>
             <button
-              key={cur}
-              className={`option-btn ${settings.currency === cur ? "active" : ""}`}
-              onClick={() => handleCurrencyChange(cur)}
+              className="btn-icon btn-icon-xs"
+              onClick={loadRates}
+              disabled={ratesLoading}
+              title="Kurları Yenile"
             >
-              <span className="option-icon">
-                {cur === "TRY" ? "TL" : cur === "USD" ? "$" : "€"}
-              </span>
-              <span>{cur}</span>
+              <RefreshIcon size={12} />
             </button>
-          ))}
+          </div>
+        </div>
+
+        <div className="currency-cards-grid">
+          {/* TRY Card */}
+          <button
+            className={`currency-card-btn ${settings.currency === "TRY" ? "active" : ""}`}
+            onClick={() => handleCurrencyChange("TRY")}
+            disabled={converting}
+          >
+            <div className="currency-card-top">
+              <span className="currency-card-symbol">₺</span>
+              <span className="currency-card-code">TRY</span>
+            </div>
+            <span className="currency-card-rate">Ana Para Birimi</span>
+          </button>
+
+          {/* USD Card */}
+          <button
+            className={`currency-card-btn ${settings.currency === "USD" ? "active" : ""}`}
+            onClick={() => handleCurrencyChange("USD")}
+            disabled={converting}
+          >
+            <div className="currency-card-top">
+              <span className="currency-card-symbol">$</span>
+              <span className="currency-card-code">USD</span>
+            </div>
+            <span className="currency-card-rate">
+              1 $ ≈ {exchangeRates ? exchangeRates.usdInTry.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) : DEFAULT_RATES_IN_TRY.USD.toFixed(2)} ₺
+            </span>
+          </button>
+
+          {/* EUR Card */}
+          <button
+            className={`currency-card-btn ${settings.currency === "EUR" ? "active" : ""}`}
+            onClick={() => handleCurrencyChange("EUR")}
+            disabled={converting}
+          >
+            <div className="currency-card-top">
+              <span className="currency-card-symbol">€</span>
+              <span className="currency-card-code">EUR</span>
+            </div>
+            <span className="currency-card-rate">
+              1 € ≈ {exchangeRates ? exchangeRates.eurInTry.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) : DEFAULT_RATES_IN_TRY.EUR.toFixed(2)} ₺
+            </span>
+          </button>
         </div>
       </div>
 
@@ -112,29 +180,24 @@ const Settings: React.FC<SettingsProps> = ({ settings, onSettingsChange }) => {
         </div>
       </div>
 
-      {/* Gemini AI Status */}
+      {/* About Application */}
       <div className="settings-section">
         <h3 className="settings-section-title">
           <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            <SparklesIcon size={18} />
-            Gemini AI Entegrasyonu
+            <SparklesIcon size={16} />
+            Uygulama Hakkında
           </span>
         </h3>
         <p className="settings-description">
-          Motivasyon ve hedef tavsiyeleri için Gemini AI API anahtarı doğrudan .env dosyasından okunur.
+          <strong>Target</strong>, birikimlerinizi planlamanızı sağlayan yapay zeka (AI) destekli akıllı masaüstü hedef takip uygulamasıdır. Hedeflerinize göre otomatik motivasyon ve stratejik tasarruf önerileri üretir.
         </p>
-        <div className="ai-status-box">
-          {aiAvailable ? (
-            <div className="ai-status-badge ai-status-active">
-              <CheckIcon size={16} />
-              <span>Gemini AI Aktif (.env dosyasından yüklendi)</span>
-            </div>
-          ) : (
-            <div className="ai-status-badge ai-status-inactive">
-              <InfoIcon size={16} />
-              <span>.env dosyasında GEMINI_API_KEY tanımlanmamış.</span>
-            </div>
-          )}
+        <div className="about-badges">
+          <span className="badge-pill">v0.1.0</span>
+          <span className="badge-pill badge-ai">
+            <SparklesIcon size={13} />
+            AI Destekli Asistan
+          </span>
+          <span className="badge-pill">Yerel & Güvenli</span>
         </div>
       </div>
     </div>
