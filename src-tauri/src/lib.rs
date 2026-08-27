@@ -252,7 +252,8 @@ Portföyü hedeflenen sürelere yetiştirmek için uygulanabilecek somut, teknik
 2. Sana verilen kesin toplam tutarları (Toplam Birikim: {} {}, Kalan: {} {}) ve hedef verilerini BİREBİR KULLAN, kafandan farklı sayı veya para birimi uydurma.
 3. Tutarları her zaman 3 basamaklı binlik ayracıyla yaz (Örnek: 100.000 TL veya 20.000 USD).
 4. Tarihleri asla 'YYYY-MM-DD' veya '2026-08-22' gibi rakamsal formatta yazma, her zaman '22 Ağustos 2026' gibi Türkçe sözel olarak belirt.
-5. Kesinlikle hiçbir emoji kullanma."#,
+5. Kesinlikle hiçbir emoji kullanma.
+6. Asla 'Sen Target...', 'Kapsamlı bir analiz sunuyorum', 'Merhaba' gibi giriş cümleleri yazma. Doğrudan '**Portföy & Likidite Analizi:**' başlığıyla başla."#,
         timestamp,
         clean_view_curr,
         clean_view_curr,
@@ -373,7 +374,8 @@ Kullanıcının bu {} tutarındaki aylık hedefi aksatmadan biriktirebilmesi ve 
 2. Sana verilen kesin matematiksel verileri (Hedef Tutarı: {} {}, Kalan Tutar: {} {}, Kalan Süre: {}, Aylık Tasarruf: {}) BİREBİR KULLAN, sayıları kafandan değiştirme veya yuvarlama.
 3. Tutarları her zaman 3 basamaklı binlik ayracıyla yaz (Örnek: 19.500 USD veya 250.000 TL).
 4. Tarihleri asla 'YYYY-MM-DD' veya '2026-08-22' gibi rakamsal formatta yazma, her zaman '22 Ağustos 2026' gibi Türkçe sözel olarak belirt.
-5. Kesinlikle hiçbir emoji kullanma."#,
+5. Kesinlikle hiçbir emoji kullanma.
+6. Asla 'Sen Target...', 'Kapsamlı bir analiz sunuyorum', 'Merhaba' gibi giriş cümleleri yazma. Doğrudan '**Hedef Durumu & Zaman/Sermaye Analizi:**' başlığıyla başla."#,
         timestamp,
         goal_name,
         clean_currency,
