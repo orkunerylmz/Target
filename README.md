@@ -43,19 +43,35 @@ By analyzing your current savings and target deadlines, it generates personalize
   - Computes the exact **daily and monthly net savings** required to reach deadlines.
   - Delivers actionable execution steps including the 50/30/20 budget framework, expense optimization, and micro-savings strategies.
 
+- **Interactive What-If Savings Calculator & Simulation**
+  - Experiment with various monthly savings amounts using an intuitive live slider.
+  - Instantly calculate projected completion dates and required daily pace for any financial goal.
+  - Get instant Target AI feedback and feasibility evaluation on simulated scenarios.
+
 - **Multi-Currency Support & Live Exchange Rates**
   - Create goals in any currency (**Turkish Lira ₺**, **US Dollar $**, **Euro €**).
   - Seamlessly convert and view your entire portfolio in your preferred dashboard currency with real-time exchange rates.
 
 - **Comprehensive Portfolio & Progress Analytics**
-  - Track overall completion rates across all goals with interactive donut and bar charts.
-  - Instantly see remaining balances, days left, and individual goal progression at a glance.
+  - Track overall completion rates across all goals with interactive donut progress rings and monthly savings trend charts.
+  - Instantly see remaining balances, days left, required monthly velocity, and individual goal breakdown at a glance.
   - Pin your highest-priority goals directly to the overview dashboard.
+
+- **Transaction History & Ledger**
+  - Record and review deposit and withdrawal transactions per goal with customizable notes.
+  - Keep a clean, transparent financial audit trail for all your savings milestones.
+
+- **Data Management & Backup**
+  - Full JSON backup and restore to easily migrate your portfolio across devices.
+  - Export your goals into clean, spreadsheet-ready CSV tables.
 
 - **Cyclic Wheel Time Picker & Smart Reminders**
   - Set custom notification alarms using an intuitive cyclic drum-wheel time picker.
   - Choose from quick presets (Morning, Noon, Evening, Night) and schedule recurrences (Every Day, Weekdays, Weekends).
   - Stay accountable with regular progress summaries and financial discipline tips.
+
+- **Global Command Palette (⌘K) & Keyboard Shortcuts**
+  - Instant spotlight navigation, quick goal creation (⌘N), and search across all goals and actions.
 
 - **Sleek & Distraction-Free Modern Design**
   - Elegant dark mode, smooth micro-animations, and clean typography tailored for focus.
@@ -64,50 +80,58 @@ By analyzing your current savings and target deadlines, it generates personalize
 
 ## Application Screens
 
-### 1. Overview (Dashboard - Initial State)
-Clean welcome dashboard showing total portfolio balance, target metrics, and quick goal creation:
+### 1. Overview & Portfolio Progress (Dashboard)
+Clean dashboard displaying total portfolio balance, target metrics, quick simulation trigger, currency switcher, interactive donut progress ring, and priority goals:
 <div align="center">
-  <img src="./screenshots/1.png" alt="1. Overview Initial Screen" width="100%" />
+  <img src="./screenshots/1.png" alt="1. Overview & Portfolio Progress" width="100%" />
 </div>
 
 ---
 
-### 2. Goals (Initial State)
-Goal management center and the entry point for planning your first financial target:
+### 2. Monthly Savings Velocity (Trend Analytics)
+Bar chart tracking your net monthly deposit volume across the last 6 months to visualize your savings momentum:
 <div align="center">
-  <img src="./screenshots/2.png" alt="2. Goals Initial Screen" width="100%" />
+  <img src="./screenshots/2.png" alt="2. Monthly Savings Velocity" width="100%" />
 </div>
 
 ---
 
-### 3. Smart Reminders & Alarm Scheduling
-Cyclic time wheel picker for configuring reminder times, schedule presets, and notification preferences:
+### 3. Interactive What-If Simulation Calculator
+Simulate how adjusting your monthly contribution changes your completion timeline, daily load, and get instant Target AI scenario analysis:
 <div align="center">
-  <img src="./screenshots/3.png" alt="3. Notifications & Wheel Time Picker" width="100%" />
+  <img src="./screenshots/3.png" alt="3. Interactive What-If Simulation" width="100%" />
 </div>
 
 ---
 
-### 4. Settings & Live Exchange Rates
-Theme preferences (Dark / Light), live currency rates (TRY, USD, EUR), and system configurations:
+### 4. Goal Management & Progress Tracking
+Active goals view with progress bars, remaining amounts, countdowns, monthly required pace, and quick action buttons:
 <div align="center">
-  <img src="./screenshots/4.png" alt="4. Settings and Live Rates" width="100%" />
+  <img src="./screenshots/4.png" alt="4. Goals Management & Progress" width="100%" />
 </div>
 
 ---
 
-### 5. Overview & Portfolio Analytics (Active Usage)
-Total accumulated savings, overall target capital, remaining balance, donut and bar charts, and pinned priority goals:
+### 5. New Goal Creation
+Create financial targets with custom currency selections, target deadlines, initial savings, and dashboard pinning preferences:
 <div align="center">
-  <img src="./screenshots/5.png" alt="5. Overview & Active Portfolio Analytics" width="100%" />
+  <img src="./screenshots/5.png" alt="5. New Goal Creation Modal" width="100%" />
 </div>
 
 ---
 
-### 6. Goal Management & Detailed Progress
-Active goal cards with completion percentages, remaining days, required monthly savings, and one-click Target AI strategic advice:
+### 6. Smart Reminders & Drum Wheel Time Picker
+Cyclic drum wheel time picker for scheduling reminder alarms, preset time slots, and granular per-goal notification settings:
 <div align="center">
-  <img src="./screenshots/6.png" alt="6. Active Goal Management and Progress" width="100%" />
+  <img src="./screenshots/6.png" alt="6. Smart Reminders & Time Picker" width="100%" />
+</div>
+
+---
+
+### 7. Settings, Live Exchange Rates & Data Backup
+Theme customization, live exchange rate monitoring, JSON backup/restore, spreadsheet CSV export, and keyboard shortcut info:
+<div align="center">
+  <img src="./screenshots/7.png" alt="7. Settings, Live Rates & Data Backup" width="100%" />
 </div>
 
 ---
@@ -273,19 +297,34 @@ Mevcut birikimlerinizi ve hedef tarihlerinizi analiz ederek size özel tasarruf 
   - Hedefinize zamanında ulaşabilmeniz için gereken **aylık ve günlük net tasarruf** miktarını hesaplar.
   - Harcama disiplini, bütçe optimizasyonu ve uygulanabilir tasarruf taktikleri ile size özel eylem planları sunar.
 
+- **İnteraktif Hedef Simülasyonu & Tasarruf Hesaplayıcı**
+  - Canlı tasarruf kaydırıcısı ile aylık birikim miktarınızı değiştirerek hedefinize ne kadar erken ulaşabileceğinizi simüle edin.
+  - Tahmini tamamlanma tarihini ve günlük ortalama finansal yükünüzü anında görün.
+  - Simülasyon senaryonuzu tek tıkla Target AI'a yorumlatarak uygulanabilirlik geri bildirimi alın.
+
 - **Çoklu Para Birimi ve Canlı Döviz Kurları**
   - Hedeflerinizi dilediğiniz para biriminde (**Türk Lirası ₺**, **Amerikan Doları $**, **Euro €**) oluşturabilirsiniz.
   - Dashboard üzerinde seçtiğiniz ana para birimine göre tüm portföyünüz anlık canlı kurlar üzerinden otomatik olarak dönüştürülerek hesaplanır.
 
 - **Kapsamlı Portföy ve İlerleme Analitiği**
-  - Tüm hedeflerinizin genel tamamlanma oranını dairesel ve çubuk grafiklerle takip edin.
+  - Tüm hedeflerinizin genel tamamlanma oranını dairesel halka grafiği ve aylık birikim hızı grafiği ile takip edin.
   - Hangi hedefinize ne kadar yaklaştığınızı, kalan gün sayınızı ve kalan bütçenizi tek bakışta görün.
   - Önemli hedeflerinizi ana ekrana sabitleyerek önceliklendirin.
+
+- **İşlem Geçmişi & Birikim Defteri**
+  - Hedef bazında eklenen veya çekilen tüm birikim işlemlerini notlarıyla birlikte kaydedin ve şeffaf şekilde takip edin.
+
+- **Veri Yönetimi & Yedekleme**
+  - Tüm verilerinizi JSON formatında cihazınıza yedekleyin ve başka bir cihaza tek tıkla geri yükleyin.
+  - Hedeflerinizi Excel ve Numbers uyumlu CSV tablosu olarak dışa aktarın.
 
 - **Döngüsel Çarklı Saat Seçici ile Akıllı Hatırlatıcılar**
   - Özel tasarlanmış akıcı saat çarkı sayesinde dilediğiniz hatırlatma saatlerini belirleyin.
   - Sabah motivasyonu, öğle kontrolü veya akşam birikim özeti gibi farklı zaman dilimleri için bildirimler ayarlayın.
   - Hafta içi, hafta sonu veya her gün seçenekleriyle tasarruf disiplininizi koruyun.
+
+- **Evrensel Komut Paleti (⌘K) & Kısayollar**
+  - Hızlı gezinme, tek tuşla yeni hedef açma (⌘N), simülasyon başlatma ve yedekleme aksiyonları.
 
 - **Göz Yormayan Modern Tasarım**
   - Odaklanmayı artıran koyu tema, akıcı geçişler ve sade arayüz.
@@ -294,50 +333,58 @@ Mevcut birikimlerinizi ve hedef tarihlerinizi analiz ederek size özel tasarruf 
 
 ## Uygulama Ekranları
 
-### 1. Genel Bakış (Dashboard - Başlangıç)
-Uygulama ilk açıldığında sade ve anlaşılır karşılama ekranı, toplam portföy durumu ve hızlı hedef ekleme:
+### 1. Genel Bakış & Portföy İlerlemesi (Dashboard)
+Toplam birikim tutarı, hedef metrikleri, hızlı simülasyon butonu, para birimi seçici, dairesel halka grafiği ve sabitlenmiş öncelikli hedefler:
 <div align="center">
-  <img src="./screenshots/1.png" alt="1. Genel Bakış Başlangıç" width="100%" />
+  <img src="./screenshots/1.png" alt="1. Genel Bakış ve Portföy İlerlemesi" width="100%" />
 </div>
 
 ---
 
-### 2. Hedefler (Başlangıç Durumu)
-Hedef yönetim alanı ve ilk hedefi oluşturma adımı:
+### 2. Aylık Birikim Hızı Grafiği (Trend Analitiği)
+Son 6 ayda yapılan net birikim hareketlerini ve birikim temposunu görselleştiren sütun grafiği:
 <div align="center">
-  <img src="./screenshots/2.png" alt="2. Hedefler Başlangıç" width="100%" />
+  <img src="./screenshots/2.png" alt="2. Aylık Birikim Hızı" width="100%" />
 </div>
 
 ---
 
-### 3. Akıllı Hatırlatıcılar ve Bildirimler
-Döngüsel saat çarkı ile bildirim saatini ayarlama, hazır zaman şablonları (Sabah, Öğle, Akşam, Gece) ve takip tercihleri:
+### 3. İnteraktif Hedef Simülasyonu ve Tasarruf Hesaplayıcı
+Aylık tasarruf miktarını değiştirerek tamamlanma süresini, günlük yükü hesaplama ve Target AI ile senaryo analizi:
 <div align="center">
-  <img src="./screenshots/3.png" alt="3. Bildirimler ve Çarklı Saat Seçici" width="100%" />
+  <img src="./screenshots/3.png" alt="3. Hedef Simülasyonu ve Hesaplayıcı" width="100%" />
 </div>
 
 ---
 
-### 4. Ayarlar & Canlı Döviz Kurları
-Görünüm teması (Koyu / Açık), canlı kur takibi ve genel sistem ayarları:
+### 4. Hedef Yönetimi ve İlerleme Takibi
+Aktif hedeflerin listesi, tamamlanma yüzdeleri, kalan gün süreleri, gereken aylık birikim tutarları ve hızlı işlem butonları:
 <div align="center">
-  <img src="./screenshots/4.png" alt="4. Ayarlar ve Canlı Kurlar" width="100%" />
+  <img src="./screenshots/4.png" alt="4. Hedef Yönetimi ve İlerleme Takibi" width="100%" />
 </div>
 
 ---
 
-### 5. Genel Bakış & Portföy Analizi (Aktif Kullanım)
-Toplam birikim durumu, hedeflenen sermaye, kalan bütçe, dairesel & çubuk grafikler ve ana ekrana sabitlenmiş öncelikli hedefler:
+### 5. Yeni Hedef Oluşturma
+Para birimi seçimi, hedef tutar, vade tarihi ve ana ekrana sabitleme seçenekleriyle yeni hedef ekleme ekranı:
 <div align="center">
-  <img src="./screenshots/5.png" alt="5. Genel Bakış ve Portföy Analizi" width="100%" />
+  <img src="./screenshots/5.png" alt="5. Yeni Hedef Oluşturma Modalı" width="100%" />
 </div>
 
 ---
 
-### 6. Hedef Yönetimi & Detaylı İlerleme
-Aktif hedeflerin listesi, tamamlanma yüzdeleri, kalan gün süreleri, gereken aylık birikim tutarları ve tek tıkla Target AI strateji butonu:
+### 6. Akıllı Hatırlatıcılar ve Çarklı Saat Seçici
+Döngüsel saat çarkı ile bildirim saatini ayarlama, hazır zaman şablonları (Sabah, Öğle, Akşam, Gece) ve detaylı hedef bildirim tercihleri:
 <div align="center">
-  <img src="./screenshots/6.png" alt="6. Hedefler ve Detaylı İlerleme" width="100%" />
+  <img src="./screenshots/6.png" alt="6. Bildirimler ve Çarklı Saat Seçici" width="100%" />
+</div>
+
+---
+
+### 7. Ayarlar, Canlı Döviz Kurları ve Veri Yedekleme
+Görünüm teması (Koyu / Açık), canlı kur takibi, JSON tam yedekleme/içe aktarma, CSV dışa aktarma ve kısayol bilgileri:
+<div align="center">
+  <img src="./screenshots/7.png" alt="7. Ayarlar, Canlı Kurlar ve Yedekleme" width="100%" />
 </div>
 
 ---
