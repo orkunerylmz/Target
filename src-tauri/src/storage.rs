@@ -8,6 +8,18 @@ use tauri::Manager;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Transaction {
+    pub id: String,
+    pub date: String,
+    pub amount: f64,
+    #[serde(rename = "type")]
+    pub tx_type: String,
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Goal {
     pub id: String,
     pub name: String,
@@ -16,9 +28,13 @@ pub struct Goal {
     pub target_date: Option<String>,
     pub icon: Option<String>,
     #[serde(default)]
+    pub category: Option<String>,
+    #[serde(default)]
     pub show_on_dashboard: Option<bool>,
     #[serde(default)]
     pub currency: Option<String>,
+    #[serde(default)]
+    pub transactions: Option<Vec<Transaction>>,
 }
 
 fn default_true() -> bool {
