@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Goal } from "../types/goal";
 import { formatCurrency, CurrencyCode, convertCurrency, DEFAULT_RATES_IN_TRY } from "../utils/currency";
-import { TrendUpIcon } from "./Icons";
+import { getMonthlySavingsTrend } from "../utils/calculations";
+import { TrendUpIcon, BarChartIcon } from "./Icons";
 
 interface ChartsProps {
   goals: Goal[];
@@ -55,8 +56,8 @@ export const OverallProgressChart: React.FC<ChartsProps> = ({
   const activeColor = selectedIndex >= 0 ? PALETTE[selectedIndex % PALETTE.length] : "var(--color-primary)";
 
   // Donut geometry
-  const size = 180;
-  const strokeWidth = 16;
+  const size = 140;
+  const strokeWidth = 12;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (activePct / 100) * circumference;
@@ -217,6 +218,54 @@ export const OverallProgressChart: React.FC<ChartsProps> = ({
               );
             })}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const MonthlyTrendChart: React.FC<ChartsProps> = ({
+  goals,
+  currency,
+  ratesInTry = DEFAULT_RATES_IN_TRY,
+}) => {
+  const points = getMonthlySavingsTrend(goals, currency, ratesInTry, 6);
+  const maxAmount = Math.max(...points.map((p) => Math.max(p.depositAmount, 100)), 1000);
+
+  return (
+    <div className="chart-card">
+      <div className="chart-header">
+        <div className="chart-title-row">
+          <span className="chart-icon">
+            <BarChartIcon size={18} />
+          </span>
+          <div>
+            <h3 className="chart-title">Aylık Birikim Hızı (Son 6 Ay)</h3>
+            <p className="chart-subtitle">İşlem kayıtlarına göre aylık net birikim hacmi</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="chart-body">
+        <div className="trend-bars-container">
+          {points.map((p) => {
+            const heightPct = Math.min(100, Math.round((p.depositAmount / maxAmount) * 100));
+            return (
+              <div key={p.monthKey} className="trend-bar-col">
+                <div className="trend-bar-value-top">
+                  {p.depositAmount > 0 ? formatCurrency(p.depositAmount, currency) : "-"}
+                </div>
+                <div className="trend-bar-track">
+                  <div
+                    className="trend-bar-fill"
+                    style={{ height: `${Math.max(heightPct, 4)}%` }}
+                    title={`${p.label}: +${formatCurrency(p.depositAmount, currency)}`}
+                  />
+                </div>
+                <span className="trend-bar-label">{p.label}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
