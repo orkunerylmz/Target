@@ -21,10 +21,13 @@ import {
   SparklesIcon,
   RefreshIcon,
   CloseIcon,
+  HistoryIcon,
+  CalculatorIcon,
+  TrophyIcon,
 } from "./Icons";
 import ProgressBar from "./ProgressBar";
 import { aiService } from "../services/aiService";
-import FormattedAiMessage from "./FormattedAiMessage";
+import { FormattedAiMessage } from "./FormattedAiMessage";
 import { formatTurkishDate } from "../utils/date";
 
 interface GoalCardProps {
@@ -35,6 +38,8 @@ interface GoalCardProps {
   onDelete: (goalId: string) => void;
   onAddSavings: (goal: Goal) => void;
   onToggleDashboard?: (goal: Goal) => void;
+  onOpenTransactions?: (goal: Goal) => void;
+  onOpenSimulation?: (goal: Goal) => void;
   variant?: "default" | "featured";
 }
 
@@ -46,6 +51,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
   onDelete,
   onAddSavings,
   onToggleDashboard,
+  onOpenTransactions,
+  onOpenSimulation,
   variant = "default",
 }) => {
   const goalCurrency = (goal.currency || "TRY") as CurrencyCode;
@@ -56,6 +63,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
   const daysLeft = calculateDaysRemaining(goal.targetDate);
   const rawMonthlyRequired = calculateMonthlyRequired(rawRemaining, goal.targetDate);
   const isPinned = goal.showOnDashboard === true;
+  const isCompleted = goal.savedAmount >= goal.targetAmount && goal.targetAmount > 0;
 
   // Amounts converted to viewCurrency
   const displaySaved = convertCurrency(goal.savedAmount, goalCurrency, viewCurrency, ratesInTry);
@@ -128,16 +136,26 @@ const GoalCard: React.FC<GoalCardProps> = ({
   };
 
   return (
-    <div className={`goal-card ${variant === "featured" ? "goal-card-featured" : ""}`}>
+    <div className={`goal-card ${variant === "featured" ? "goal-card-featured" : ""} ${isCompleted ? "goal-completed" : ""}`}>
+      {isCompleted && (
+        <div className="completed-ribbon">
+          <TrophyIcon size={13} />
+          <span>Hedefe Ulaşıldı!</span>
+        </div>
+      )}
+
       <div className="goal-card-header">
         <div className="goal-card-title-row">
           <span className="goal-card-icon">
             <TargetIcon size={20} />
           </span>
-          <h3 className="goal-card-name">{goal.name}</h3>
+          <div className="goal-card-name-group">
+            <h3 className="goal-card-name">{goal.name}</h3>
+          </div>
           {isPinned && <span className="pinned-badge">Dashboard</span>}
         </div>
         <div className="goal-card-actions">
+          {/* AI Strategy Advice */}
           <button
             className={`btn-icon btn-ai ${showAiAdvice ? "active" : ""}`}
             onClick={handleToggleAi}
@@ -145,6 +163,30 @@ const GoalCard: React.FC<GoalCardProps> = ({
           >
             <SparklesIcon size={15} />
           </button>
+
+          {/* Simulation Trigger */}
+          {onOpenSimulation && (
+            <button
+              className="btn-icon btn-sim"
+              onClick={() => onOpenSimulation(goal)}
+              title="Hedef Simülasyonu"
+            >
+              <CalculatorIcon size={15} />
+            </button>
+          )}
+
+          {/* Transaction Ledger Trigger */}
+          {onOpenTransactions && (
+            <button
+              className="btn-icon btn-history"
+              onClick={() => onOpenTransactions(goal)}
+              title={`İşlem Geçmişi (${goal.transactions?.length || 0})`}
+            >
+              <HistoryIcon size={15} />
+            </button>
+          )}
+
+          {/* Pin to Dashboard */}
           {onToggleDashboard && (
             <button
               className={`btn-icon btn-pin ${isPinned ? "active" : ""}`}
@@ -154,6 +196,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
               <PinIcon size={15} filled={isPinned} />
             </button>
           )}
+
+          {/* Add Savings */}
           <button
             className="btn-icon btn-add"
             onClick={() => onAddSavings(goal)}
@@ -161,6 +205,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
           >
             <PlusIcon size={16} />
           </button>
+
+          {/* Edit */}
           <button
             className="btn-icon btn-edit"
             onClick={() => onEdit(goal)}
@@ -168,6 +214,8 @@ const GoalCard: React.FC<GoalCardProps> = ({
           >
             <EditIcon size={15} />
           </button>
+
+          {/* Delete */}
           <button
             className="btn-icon btn-delete"
             onClick={() => onDelete(goal.id)}
