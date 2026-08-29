@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Goal } from "../types/goal";
+import { Goal, Transaction } from "../types/goal";
 import { AppSettings } from "../types/settings";
-import { getConvertedTotalStats } from "../utils/calculations";
+import { getConvertedTotalStats, getGoalsNeedingAttention } from "../utils/calculations";
 import {
   formatCurrency,
   formatInputNumber,
@@ -13,9 +13,15 @@ import {
 } from "../utils/currency";
 import GoalCard from "../components/GoalCard";
 import Modal from "../components/Modal";
-import { OverallProgressChart } from "../components/Charts";
-import FormattedAiMessage from "../components/FormattedAiMessage";
+import {
+  OverallProgressChart,
+  MonthlyTrendChart,
+} from "../components/Charts";
+import { FormattedAiMessage } from "../components/FormattedAiMessage";
 import { formatTurkishDate } from "../utils/date";
+import { triggerConfetti } from "../utils/confetti";
+import { TransactionModal } from "../components/TransactionModal";
+import { SimulationModal } from "../components/SimulationModal";
 import {
   SparklesIcon,
   PinIcon,
@@ -23,6 +29,9 @@ import {
   CloseIcon,
   PlusIcon,
   TargetIcon,
+  CalculatorIcon,
+  BarChartIcon,
+  TrendUpIcon,
 } from "../components/Icons";
 import { invoke } from "@tauri-apps/api/core";
 import { aiService } from "../services/aiService";
@@ -31,7 +40,8 @@ interface DashboardProps {
   goals: Goal[];
   settings: AppSettings;
   onGoalsChange: (goals: Goal[]) => void;
-  onNavigate: (page: "goals") => void;
+  onNavigate: (page: "goals" | "notifications" | "settings") => void;
+  onOpenSimulation?: () => void;
 }
 
 const emptyGoal: Omit<Goal, "id"> = {
@@ -41,9 +51,11 @@ const emptyGoal: Omit<Goal, "id"> = {
   targetDate: undefined,
   showOnDashboard: true,
   currency: "TRY",
+  category: "other",
 };
 
 const CURRENCIES: CurrencyCode[] = ["TRY", "USD", "EUR"];
+type ChartTab = "progress" | "trend";
 
 const Dashboard: React.FC<DashboardProps> = ({
   goals,
@@ -52,8 +64,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   onNavigate,
 }) => {
   // Currency state
-  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(settings.currency || "TRY");
+  const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(settings.currency as CurrencyCode || "TRY");
   const [ratesInTry, setRatesInTry] = useState<Record<CurrencyCode, number>>(DEFAULT_RATES_IN_TRY);
+  const [activeChartTab, setActiveChartTab] = useState<ChartTab>("progress");
+
+  // Simulation & Transaction Modal States
+  const [showSimulation, setShowSimulation] = useState(false);
+  const [simulationGoalId, setSimulationGoalId] = useState<string | null>(null);
+  const [historyGoal, setHistoryGoal] = useState<Goal | null>(null);
 
   useEffect(() => {
     fetchExchangeRatesInTRY().then((data) => {
@@ -67,7 +85,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     if (settings.currency) {
-      setSelectedCurrency(settings.currency);
+      setSelectedCurrency(settings.currency as CurrencyCode);
     }
   }, [settings.currency]);
 
@@ -83,6 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   // Filter goals pinned to dashboard
   const dashboardGoals = goals.filter((g) => g.showOnDashboard !== false);
+  const attentionGoals = getGoalsNeedingAttention(goals);
 
   // Target AI state
   const [aiMessage, setAiMessage] = useState<string>(
@@ -114,6 +133,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [savingsGoal, setSavingsGoal] = useState<Goal | null>(null);
   const [savingsMain, setSavingsMain] = useState<string>("");
   const [savingsCents, setSavingsCents] = useState<string>("");
+  const [savingsNote, setSavingsNote] = useState<string>("");
 
   // Edit Goal modal state
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -123,19 +143,30 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [savedMain, setSavedMain] = useState<number | "">("");
   const [savedCents, setSavedCents] = useState<string>("");
 
-  const [aiAvailable, setAiAvailable] = useState(false);
+  const handleEditCurrencySwitch = (newCurr: CurrencyCode) => {
+    const oldCurr = (editFormData.currency || "TRY") as CurrencyCode;
+    if (newCurr === oldCurr) return;
 
-  useEffect(() => {
-    const checkAi = async () => {
-      try {
-        const available = await invoke<boolean>("check_gemini_available");
-        setAiAvailable(available);
-      } catch {
-        setAiAvailable(false);
-      }
-    };
-    checkAi();
-  }, []);
+    const currentTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseInt(targetCents || "0", 10) / 100);
+    if (currentTarget > 0) {
+      const converted = convertCurrency(currentTarget, oldCurr, newCurr, ratesInTry);
+      const tMain = Math.floor(converted);
+      const tCents = Math.round((converted % 1) * 100);
+      setTargetMain(tMain > 0 ? tMain : "");
+      setTargetCents(tCents > 0 ? tCents.toString().padStart(2, "0") : "");
+    }
+
+    const currentSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseInt(savedCents || "0", 10) / 100);
+    if (currentSaved > 0) {
+      const converted = convertCurrency(currentSaved, oldCurr, newCurr, ratesInTry);
+      const sMain = Math.floor(converted);
+      const sCents = Math.round((converted % 1) * 100);
+      setSavedMain(sMain > 0 ? sMain : "");
+      setSavedCents(sCents > 0 ? sCents.toString().padStart(2, "0") : "");
+    }
+
+    setEditFormData({ ...editFormData, currency: newCurr });
+  };
 
   const openEditModal = (goal: Goal) => {
     setEditingGoal(goal);
@@ -145,8 +176,10 @@ const Dashboard: React.FC<DashboardProps> = ({
       savedAmount: goal.savedAmount,
       targetDate: goal.targetDate,
       icon: goal.icon,
+      category: goal.category || "other",
       showOnDashboard: goal.showOnDashboard !== false,
       currency: goal.currency || settings.currency || "TRY",
+      transactions: goal.transactions || [],
     });
 
     const tMain = Math.floor(goal.targetAmount);
@@ -158,33 +191,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     const sCents = Math.round((goal.savedAmount % 1) * 100);
     setSavedMain(sMain > 0 ? sMain : "");
     setSavedCents(sCents > 0 ? sCents.toString().padStart(2, "0") : "");
-  };
-
-  const handleEditCurrencySwitch = (newCurr: CurrencyCode) => {
-    const oldCurr = (editFormData.currency || "TRY") as CurrencyCode;
-    if (newCurr === oldCurr) return;
-
-    // Convert target amount
-    const currentTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseInt(targetCents || "0", 10) / 100);
-    if (currentTarget > 0) {
-      const converted = convertCurrency(currentTarget, oldCurr, newCurr, ratesInTry);
-      const tMain = Math.floor(converted);
-      const tCents = Math.round((converted % 1) * 100);
-      setTargetMain(tMain > 0 ? tMain : "");
-      setTargetCents(tCents > 0 ? tCents.toString().padStart(2, "0") : "");
-    }
-
-    // Convert saved amount
-    const currentSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseInt(savedCents || "0", 10) / 100);
-    if (currentSaved > 0) {
-      const converted = convertCurrency(currentSaved, oldCurr, newCurr, ratesInTry);
-      const sMain = Math.floor(converted);
-      const sCents = Math.round((converted % 1) * 100);
-      setSavedMain(sMain > 0 ? sMain : "");
-      setSavedCents(sCents > 0 ? sCents.toString().padStart(2, "0") : "");
-    }
-
-    setEditFormData({ ...editFormData, currency: newCurr });
   };
 
   const handleSaveEditedGoal = async () => {
@@ -199,6 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       targetAmount: fullTarget,
       savedAmount: fullSaved,
       currency: editFormData.currency || settings.currency || "TRY",
+      category: editFormData.category || "other",
     };
 
     const updated = goals.map((g) =>
@@ -237,16 +244,46 @@ const Dashboard: React.FC<DashboardProps> = ({
     const totalAdd = mainAmount + centsAmount;
     if (totalAdd <= 0) return;
 
+    const newTx: Transaction = {
+      id: `tx_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      date: new Date().toISOString(),
+      amount: totalAdd,
+      type: "deposit",
+      note: savingsNote.trim() || undefined,
+    };
+
+    const newTotal = savingsGoal.savedAmount + totalAdd;
+    const wasIncomplete = savingsGoal.savedAmount < savingsGoal.targetAmount;
+    const isNowComplete = newTotal >= savingsGoal.targetAmount;
+
     const updated = goals.map((g) =>
       g.id === savingsGoal.id
-        ? { ...g, savedAmount: g.savedAmount + totalAdd }
+        ? {
+            ...g,
+            savedAmount: newTotal,
+            transactions: [...(g.transactions || []), newTx],
+          }
         : g
     );
+
     await invoke("save_goals", { goals: updated });
     onGoalsChange(updated);
+
+    if (wasIncomplete && isNowComplete) {
+      triggerConfetti();
+    }
+
     setSavingsGoal(null);
     setSavingsMain("");
     setSavingsCents("");
+    setSavingsNote("");
+  };
+
+  const handleUpdateGoalFromTx = async (updatedGoal: Goal) => {
+    const updated = goals.map((g) => (g.id === updatedGoal.id ? updatedGoal : g));
+    await invoke("save_goals", { goals: updated });
+    onGoalsChange(updated);
+    setHistoryGoal(updatedGoal);
   };
 
   return (
@@ -266,6 +303,19 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
 
         <div className="clean-header-actions">
+          {/* Financial Simulation Button */}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm sim-header-btn"
+            onClick={() => {
+              setSimulationGoalId(goals[0]?.id || null);
+              setShowSimulation(true);
+            }}
+          >
+            <CalculatorIcon size={15} />
+            <span>Simülasyon</span>
+          </button>
+
           {/* Currency Switcher */}
           <div className="clean-currency-toggle">
             {CURRENCIES.map((curr) => (
@@ -330,76 +380,117 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* ── Target AI Assistant (Quiet & Minimal) ── */}
-      {aiAvailable && (
-        <div className="clean-ai-card">
-          <div className="clean-ai-header">
-            <div className="clean-ai-title-wrap">
-              <span className="clean-ai-icon">
-                <SparklesIcon size={16} />
-              </span>
-              <span className="clean-ai-title">Target AI</span>
-            </div>
+      <div className="clean-ai-card">
+        <div className="clean-ai-header">
+          <div className="clean-ai-title-wrap">
+            <span className="clean-ai-icon">
+              <SparklesIcon size={16} />
+            </span>
+            <span className="clean-ai-title">Target AI • Portföy Danışmanı</span>
+          </div>
 
-            <div className="clean-ai-btn-group">
+          <div className="clean-ai-btn-group">
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm clean-ai-action-btn"
+              onClick={handleGetAiMotivation}
+              disabled={aiLoading}
+            >
+              {aiLoading ? (
+                <>
+                  <RefreshIcon size={12} className="spin-animate" />
+                  <span>Analiz Ediliyor...</span>
+                </>
+              ) : aiMessage ? (
+                <>
+                  <RefreshIcon size={12} />
+                  <span>Yenile</span>
+                </>
+              ) : (
+                <>
+                  <SparklesIcon size={13} />
+                  <span>Analiz Et</span>
+                </>
+              )}
+            </button>
+
+            {aiMessage && !aiLoading && (
               <button
                 type="button"
-                className="btn btn-secondary btn-sm clean-ai-action-btn"
-                onClick={handleGetAiMotivation}
-                disabled={aiLoading}
+                className="btn-icon clean-ai-close"
+                onClick={handleCloseAi}
+                title="Kapat"
               >
-                {aiLoading ? (
-                  <>
-                    <RefreshIcon size={12} className="spin-animate" />
-                    <span>Analiz Ediliyor...</span>
-                  </>
-                ) : aiMessage ? (
-                  <>
-                    <RefreshIcon size={12} />
-                    <span>Yenile</span>
-                  </>
-                ) : (
-                  <>
-                    <SparklesIcon size={13} />
-                    <span>Analiz Et</span>
-                  </>
-                )}
+                <CloseIcon size={14} />
               </button>
+            )}
+          </div>
+        </div>
 
-              {aiMessage && !aiLoading && (
-                <button
-                  type="button"
-                  className="btn-icon clean-ai-close"
-                  onClick={handleCloseAi}
-                  title="Kapat"
-                >
-                  <CloseIcon size={14} />
-                </button>
-              )}
+        {aiLoading ? (
+          <div className="clean-ai-loading">
+            <span className="loading-shimmer" />
+            <span>Target AI portföyünüzü analiz ediyor ve stratejinizi hazırlıyor...</span>
+          </div>
+        ) : aiMessage ? (
+          <div className="clean-ai-content">
+            <FormattedAiMessage text={aiMessage} />
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Analytics Visualizations with Tab Switcher ── */}
+      {goals.length > 0 && (
+        <div className="analytics-section-wrapper">
+          <div className="analytics-tab-header">
+            <div className="analytics-tabs">
+              <button
+                type="button"
+                className={`analytics-tab-btn ${activeChartTab === "progress" ? "active" : ""}`}
+                onClick={() => setActiveChartTab("progress")}
+              >
+                <TrendUpIcon size={15} />
+                <span>Birikim İlerlemesi</span>
+              </button>
+              <button
+                type="button"
+                className={`analytics-tab-btn ${activeChartTab === "trend" ? "active" : ""}`}
+                onClick={() => setActiveChartTab("trend")}
+              >
+                <BarChartIcon size={15} />
+                <span>Aylık Birikim Hızı</span>
+              </button>
             </div>
           </div>
 
-          {aiLoading ? (
-            <div className="clean-ai-loading">
-              <span className="loading-shimmer" />
-              <span>Target AI portföyünüzü analiz ediyor ve stratejinizi hazırlıyor...</span>
-            </div>
-          ) : aiMessage ? (
-            <div className="clean-ai-content">
-              <FormattedAiMessage text={aiMessage} />
-            </div>
-          ) : null}
+          <div className="analytics-tab-body">
+            {activeChartTab === "progress" && (
+              <OverallProgressChart goals={goals} currency={selectedCurrency} ratesInTry={ratesInTry} />
+            )}
+            {activeChartTab === "trend" && (
+              <MonthlyTrendChart goals={goals} currency={selectedCurrency} ratesInTry={ratesInTry} />
+            )}
+          </div>
         </div>
-      )}
-
-      {/* ── Analytics Chart (Shown when goals exist) ── */}
-      {goals.length > 0 && (
-        <OverallProgressChart goals={goals} currency={selectedCurrency} ratesInTry={ratesInTry} />
       )}
 
       {/* ── Pinned Goals Section / Empty State ── */}
       <div className="clean-goals-section">
         {goals.length > 0 ? (
           <>
+            {attentionGoals.length > 0 && (
+              <div className="status-banner status-error" style={{ marginBottom: "16px" }}>
+                <span>⚠️ {attentionGoals.length} hedefinizin vadesi yaklaşıyor veya ilerleme temposu geride kaldı.</span>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  style={{ marginLeft: "auto" }}
+                  onClick={() => onNavigate("goals")}
+                >
+                  İncele
+                </button>
+              </div>
+            )}
+
             <div className="section-header">
               <h3 className="section-title">
                 Dashboard Hedefleri ({dashboardGoals.length})
@@ -426,8 +517,14 @@ const Dashboard: React.FC<DashboardProps> = ({
                       setSavingsGoal(g);
                       setSavingsMain("");
                       setSavingsCents("");
+                      setSavingsNote("");
                     }}
                     onToggleDashboard={handleToggleDashboard}
+                    onOpenTransactions={(g) => setHistoryGoal(g)}
+                    onOpenSimulation={(g) => {
+                      setSimulationGoalId(g.id);
+                      setShowSimulation(true);
+                    }}
                     variant="default"
                   />
                 ))}
@@ -485,6 +582,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           setSavedCents("");
         }}
         title="Hedefi Düzenle"
+        size="lg"
       >
         <div className="form-group">
           <label>Hedef Adı</label>
@@ -624,6 +722,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           setSavingsGoal(null);
           setSavingsMain("");
           setSavingsCents("");
+          setSavingsNote("");
         }}
         title={`Birikim Ekle: ${savingsGoal?.name || ""}`}
       >
@@ -658,12 +757,26 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
 
+        <div className="form-group">
+          <label>İşlem Notu (Opsiyonel)</label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Örn: Maaş günü aktarımı, Ek gelir"
+            value={savingsNote}
+            onChange={(e) => setSavingsNote(e.target.value)}
+          />
+        </div>
+
         {savingsGoal && (
           <div className="savings-preview">
             <div className="savings-preview-row">
-              <span>Mevcut:</span>
-              <span className="value">{formatCurrency(savingsGoal.savedAmount, selectedCurrency)}</span>
+              <span>Mevcut Birikim:</span>
+              <span className="value">
+                {formatCurrency(savingsGoal.savedAmount, (savingsGoal.currency || selectedCurrency || "TRY") as CurrencyCode)}
+              </span>
             </div>
+            <div className="savings-preview-divider" />
             <div className="savings-preview-row">
               <span>Yeni Toplam:</span>
               <span className="value highlight">
@@ -671,7 +784,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   savingsGoal.savedAmount +
                     parseInputNumber(savingsMain) +
                     (parseInt(savingsCents || "0", 10) / 100),
-                  selectedCurrency
+                  (savingsGoal.currency || selectedCurrency || "TRY") as CurrencyCode
                 )}
               </span>
             </div>
@@ -686,6 +799,7 @@ const Dashboard: React.FC<DashboardProps> = ({
               setSavingsGoal(null);
               setSavingsMain("");
               setSavingsCents("");
+              setSavingsNote("");
             }}
           >
             İptal
@@ -699,6 +813,24 @@ const Dashboard: React.FC<DashboardProps> = ({
           </button>
         </div>
       </Modal>
+
+      {/* ── Transaction Modal ── */}
+      <TransactionModal
+        goal={historyGoal}
+        isOpen={historyGoal !== null}
+        onClose={() => setHistoryGoal(null)}
+        onUpdateGoal={handleUpdateGoalFromTx}
+      />
+
+      {/* ── Simulation Modal ── */}
+      <SimulationModal
+        isOpen={showSimulation}
+        onClose={() => setShowSimulation(false)}
+        goals={goals}
+        initialGoalId={simulationGoalId || undefined}
+        defaultCurrency={selectedCurrency}
+        ratesInTry={ratesInTry}
+      />
     </div>
   );
 };
