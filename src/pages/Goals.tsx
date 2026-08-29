@@ -5,14 +5,18 @@ import GoalCard from "../components/GoalCard";
 import Modal from "../components/Modal";
 import { PlusIcon, TargetIcon } from "../components/Icons";
 import {
+  formatCurrency,
   formatInputNumber,
   parseInputNumber,
   CurrencyCode,
   convertCurrency,
-  fetchExchangeRatesInTRY,
   DEFAULT_RATES_IN_TRY,
+  fetchExchangeRatesInTRY,
 } from "../utils/currency";
 import { formatTurkishDate } from "../utils/date";
+import { triggerConfetti } from "../utils/confetti";
+import { TransactionModal } from "../components/TransactionModal";
+import { SimulationModal } from "../components/SimulationModal";
 import { invoke } from "@tauri-apps/api/core";
 
 interface GoalsProps {
@@ -25,70 +29,53 @@ const emptyGoal: Omit<Goal, "id"> = {
   name: "",
   targetAmount: 0,
   savedAmount: 0,
+  currency: "TRY",
   targetDate: undefined,
   showOnDashboard: true,
-  currency: "TRY",
 };
 
 const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
   const [showModal, setShowModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [formData, setFormData] = useState<Omit<Goal, "id">>(emptyGoal);
+
+  // Live Exchange Rates
   const [ratesInTry, setRatesInTry] = useState<Record<CurrencyCode, number>>(DEFAULT_RATES_IN_TRY);
 
   useEffect(() => {
-    fetchExchangeRatesInTRY().then((data) => {
+    fetchExchangeRatesInTRY().then((info) => {
       setRatesInTry({
         TRY: 1.0,
-        USD: data.usdInTry,
-        EUR: data.eurInTry,
+        USD: info.usdInTry,
+        EUR: info.eurInTry,
       });
     });
   }, []);
 
-  // Split amount states for Create / Edit Modal (Main + Cents/Kuruş)
+  // Split-field states for Create / Edit Modal
   const [targetMain, setTargetMain] = useState<number | "">("");
   const [targetCents, setTargetCents] = useState<string>("");
   const [savedMain, setSavedMain] = useState<number | "">("");
   const [savedCents, setSavedCents] = useState<string>("");
 
-  // Savings modal
+  // Add Savings Modal State
   const [savingsGoal, setSavingsGoal] = useState<Goal | null>(null);
   const [savingsMain, setSavingsMain] = useState<string>("");
   const [savingsCents, setSavingsCents] = useState<string>("");
+  const [savingsNote, setSavingsNote] = useState<string>("");
 
-  const handleCurrencySwitch = (newCurr: CurrencyCode) => {
-    const oldCurr = (formData.currency || "TRY") as CurrencyCode;
-    if (newCurr === oldCurr) return;
+  // Transaction Ledger Modal State
+  const [historyGoal, setHistoryGoal] = useState<Goal | null>(null);
 
-    // Convert target amount
-    const currentTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseInt(targetCents || "0", 10) / 100);
-    if (currentTarget > 0) {
-      const converted = convertCurrency(currentTarget, oldCurr, newCurr, ratesInTry);
-      const tMain = Math.floor(converted);
-      const tCents = Math.round((converted % 1) * 100);
-      setTargetMain(tMain > 0 ? tMain : "");
-      setTargetCents(tCents > 0 ? tCents.toString().padStart(2, "0") : "");
-    }
-
-    // Convert saved amount
-    const currentSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseInt(savedCents || "0", 10) / 100);
-    if (currentSaved > 0) {
-      const converted = convertCurrency(currentSaved, oldCurr, newCurr, ratesInTry);
-      const sMain = Math.floor(converted);
-      const sCents = Math.round((converted % 1) * 100);
-      setSavedMain(sMain > 0 ? sMain : "");
-      setSavedCents(sCents > 0 ? sCents.toString().padStart(2, "0") : "");
-    }
-
-    setFormData({ ...formData, currency: newCurr });
-  };
+  // Simulation Modal State
+  const [showSimulation, setShowSimulation] = useState<boolean>(false);
+  const [simulationGoalId, setSimulationGoalId] = useState<string | null>(null);
 
   const openCreateModal = () => {
     setEditingGoal(null);
     setFormData({
       ...emptyGoal,
-      currency: settings.currency || "TRY",
+      currency: (settings.currency || "TRY") as CurrencyCode,
     });
     setTargetMain("");
     setTargetCents("");
@@ -103,48 +90,84 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
       name: goal.name,
       targetAmount: goal.targetAmount,
       savedAmount: goal.savedAmount,
+      currency: goal.currency || "TRY",
       targetDate: goal.targetDate,
-      icon: goal.icon,
       showOnDashboard: goal.showOnDashboard !== false,
-      currency: goal.currency || settings.currency || "TRY",
+      category: goal.category,
+      transactions: goal.transactions,
     });
 
-    const tMain = Math.floor(goal.targetAmount);
-    const tCents = Math.round((goal.targetAmount % 1) * 100);
-    setTargetMain(tMain > 0 ? tMain : "");
-    setTargetCents(tCents > 0 ? tCents.toString().padStart(2, "0") : "");
+    const targetVal = goal.targetAmount;
+    setTargetMain(Math.floor(targetVal));
+    const targetCentsVal = Math.round((targetVal % 1) * 100);
+    setTargetCents(targetCentsVal > 0 ? targetCentsVal.toString().padStart(2, "0") : "");
 
-    const sMain = Math.floor(goal.savedAmount);
-    const sCents = Math.round((goal.savedAmount % 1) * 100);
-    setSavedMain(sMain > 0 ? sMain : "");
-    setSavedCents(sCents > 0 ? sCents.toString().padStart(2, "0") : "");
+    const savedVal = goal.savedAmount;
+    setSavedMain(Math.floor(savedVal));
+    const savedCentsVal = Math.round((savedVal % 1) * 100);
+    setSavedCents(savedCentsVal > 0 ? savedCentsVal.toString().padStart(2, "0") : "");
 
     setShowModal(true);
   };
 
+  const handleCurrencySwitch = (newCurrency: CurrencyCode) => {
+    const oldCurrency = (formData.currency || "TRY") as CurrencyCode;
+    if (oldCurrency === newCurrency) return;
+
+    const currentTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseFloat(targetCents) || 0) / 100;
+    const currentSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseFloat(savedCents) || 0) / 100;
+
+    const convertedTarget = convertCurrency(currentTarget, oldCurrency, newCurrency, ratesInTry);
+    const convertedSaved = convertCurrency(currentSaved, oldCurrency, newCurrency, ratesInTry);
+
+    setFormData({ ...formData, currency: newCurrency });
+
+    if (currentTarget > 0) {
+      setTargetMain(Math.floor(convertedTarget));
+      const cents = Math.round((convertedTarget % 1) * 100);
+      setTargetCents(cents > 0 ? cents.toString().padStart(2, "0") : "");
+    }
+
+    if (currentSaved > 0) {
+      setSavedMain(Math.floor(convertedSaved));
+      const cents = Math.round((convertedSaved % 1) * 100);
+      setSavedCents(cents > 0 ? cents.toString().padStart(2, "0") : "");
+    }
+  };
+
   const handleSave = async () => {
-    const fullTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseInt(targetCents || "0", 10) / 100);
-    const fullSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseInt(savedCents || "0", 10) / 100);
+    if (!formData.name.trim()) return;
 
-    if (!formData.name || fullTarget <= 0) return;
-
-    const payload = {
-      ...formData,
-      targetAmount: fullTarget,
-      savedAmount: fullSaved,
-      currency: formData.currency || settings.currency || "TRY",
-    };
+    const finalTarget = (typeof targetMain === "number" ? targetMain : 0) + (parseFloat(targetCents) || 0) / 100;
+    const finalSaved = (typeof savedMain === "number" ? savedMain : 0) + (parseFloat(savedCents) || 0) / 100;
 
     let updated: Goal[];
-
     if (editingGoal) {
       updated = goals.map((g) =>
-        g.id === editingGoal.id ? { ...g, ...payload } : g
+        g.id === editingGoal.id
+          ? {
+              ...g,
+              ...formData,
+              targetAmount: finalTarget,
+              savedAmount: finalSaved,
+            }
+          : g
       );
     } else {
       const newGoal: Goal = {
-        id: `goal-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        ...payload,
+        ...formData,
+        id: `goal_${Date.now()}`,
+        targetAmount: finalTarget,
+        savedAmount: finalSaved,
+        transactions: finalSaved > 0 ? [
+          {
+            id: `tx_${Date.now()}`,
+            date: new Date().toISOString(),
+            amount: finalSaved,
+            type: "deposit",
+            note: "Başlangıç birikimi",
+          }
+        ] : [],
       };
       updated = [...goals, newGoal];
     }
@@ -152,47 +175,72 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
     await invoke("save_goals", { goals: updated });
     onGoalsChange(updated);
     setShowModal(false);
-    setFormData(emptyGoal);
-    setEditingGoal(null);
-    setTargetMain("");
-    setTargetCents("");
-    setSavedMain("");
-    setSavedCents("");
   };
 
-  const handleDelete = async (goalId: string) => {
-    const updated = goals.filter((g) => g.id !== goalId);
-    await invoke("save_goals", { goals: updated });
-    onGoalsChange(updated);
-  };
-
-  const handleToggleDashboard = async (goal: Goal) => {
-    const updated = goals.map((g) =>
-      g.id === goal.id
-        ? { ...g, showOnDashboard: !g.showOnDashboard }
-        : g
-    );
+  const handleDelete = async (id: string) => {
+    const updated = goals.filter((g) => g.id !== id);
     await invoke("save_goals", { goals: updated });
     onGoalsChange(updated);
   };
 
   const handleAddSavings = async () => {
     if (!savingsGoal) return;
-    const mainAmount = parseInputNumber(savingsMain);
-    const centsAmount = parseInt(savingsCents || "0", 10) / 100;
-    const totalAdd = mainAmount + centsAmount;
-    if (totalAdd <= 0) return;
+    const mainPart = parseFloat(savingsMain) || 0;
+    const centsPart = (parseFloat(savingsCents) || 0) / 100;
+    const addAmount = mainPart + centsPart;
+    if (addAmount <= 0) return;
+
+    const prevSaved = savingsGoal.savedAmount;
+    const newSaved = prevSaved + addAmount;
+
+    const newTx = {
+      id: `tx_${Date.now()}`,
+      date: new Date().toISOString(),
+      amount: addAmount,
+      type: "deposit" as const,
+      note: savingsNote.trim() || undefined,
+    };
 
     const updated = goals.map((g) =>
       g.id === savingsGoal.id
-        ? { ...g, savedAmount: g.savedAmount + totalAdd }
+        ? {
+            ...g,
+            savedAmount: newSaved,
+            transactions: [newTx, ...(g.transactions || [])],
+          }
+        : g
+    );
+
+    await invoke("save_goals", { goals: updated });
+    onGoalsChange(updated);
+
+    if (prevSaved < savingsGoal.targetAmount && newSaved >= savingsGoal.targetAmount) {
+      triggerConfetti();
+    }
+
+    setSavingsGoal(null);
+    setSavingsMain("");
+    setSavingsCents("");
+    setSavingsNote("");
+  };
+
+  const handleToggleDashboard = async (goal: Goal) => {
+    const updated = goals.map((g) =>
+      g.id === goal.id
+        ? { ...g, showOnDashboard: g.showOnDashboard === false ? true : false }
         : g
     );
     await invoke("save_goals", { goals: updated });
     onGoalsChange(updated);
-    setSavingsGoal(null);
-    setSavingsMain("");
-    setSavingsCents("");
+  };
+
+  const handleUpdateGoalFromTx = async (updatedGoal: Goal) => {
+    const updated = goals.map((g) => (g.id === updatedGoal.id ? updatedGoal : g));
+    await invoke("save_goals", { goals: updated });
+    onGoalsChange(updated);
+    if (historyGoal && historyGoal.id === updatedGoal.id) {
+      setHistoryGoal(updatedGoal);
+    }
   };
 
   const activeCurrency = formData.currency || settings.currency || "TRY";
@@ -235,12 +283,18 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
               ratesInTry={ratesInTry}
               onEdit={openEditModal}
               onDelete={handleDelete}
-              onAddSavings={(goal) => {
-                setSavingsGoal(goal);
+              onAddSavings={(g) => {
+                setSavingsGoal(g);
                 setSavingsMain("");
                 setSavingsCents("");
+                setSavingsNote("");
               }}
               onToggleDashboard={handleToggleDashboard}
+              onOpenTransactions={(g) => setHistoryGoal(g)}
+              onOpenSimulation={(g) => {
+                setSimulationGoalId(g.id);
+                setShowSimulation(true);
+              }}
             />
           ))}
         </div>
@@ -349,6 +403,7 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
             </div>
           </div>
         </div>
+
         <div className="form-group">
           <div className="form-label-row">
             <label>Hedef Tarihi (İsteğe Bağlı)</label>
@@ -365,6 +420,7 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
             }
           />
         </div>
+
         <div className="form-group checkbox-group">
           <label className="checkbox-label">
             <input
@@ -377,6 +433,7 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
             <span>Bu hedefi Dashboard'da göster</span>
           </label>
         </div>
+
         <div className="form-actions">
           <button
             className="btn btn-secondary"
@@ -405,6 +462,7 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
           setSavingsGoal(null);
           setSavingsMain("");
           setSavingsCents("");
+          setSavingsNote("");
         }}
         title={`Birikim Ekle – ${savingsGoal?.name || ""}`}
       >
@@ -435,6 +493,41 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
             />
           </div>
         </div>
+
+        <div className="form-group">
+          <label>İşlem Notu (Opsiyonel)</label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Örn: Maaş günü aktarımı, Ekstra prim geliri"
+            value={savingsNote}
+            onChange={(e) => setSavingsNote(e.target.value)}
+          />
+        </div>
+
+        {savingsGoal && (
+          <div className="savings-preview">
+            <div className="savings-preview-row">
+              <span>Mevcut Birikim:</span>
+              <span className="value">
+                {formatCurrency(savingsGoal.savedAmount, (savingsGoal.currency || "TRY") as CurrencyCode)}
+              </span>
+            </div>
+            <div className="savings-preview-divider" />
+            <div className="savings-preview-row">
+              <span>Yeni Toplam:</span>
+              <span className="value highlight">
+                {formatCurrency(
+                  savingsGoal.savedAmount +
+                    parseInputNumber(savingsMain) +
+                    (parseInt(savingsCents || "0", 10) / 100),
+                  (savingsGoal.currency || "TRY") as CurrencyCode
+                )}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="form-actions">
           <button
             className="btn btn-secondary"
@@ -442,6 +535,7 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
               setSavingsGoal(null);
               setSavingsMain("");
               setSavingsCents("");
+              setSavingsNote("");
             }}
           >
             İptal
@@ -451,6 +545,24 @@ const Goals: React.FC<GoalsProps> = ({ goals, settings, onGoalsChange }) => {
           </button>
         </div>
       </Modal>
+
+      {/* Transaction History Modal */}
+      <TransactionModal
+        goal={historyGoal}
+        isOpen={historyGoal !== null}
+        onClose={() => setHistoryGoal(null)}
+        onUpdateGoal={handleUpdateGoalFromTx}
+      />
+
+      {/* Simulation Modal */}
+      <SimulationModal
+        isOpen={showSimulation}
+        onClose={() => setShowSimulation(false)}
+        goals={goals}
+        initialGoalId={simulationGoalId || undefined}
+        defaultCurrency={settings.currency as CurrencyCode}
+        ratesInTry={ratesInTry}
+      />
     </div>
   );
 };
