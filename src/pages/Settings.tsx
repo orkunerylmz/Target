@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { AppSettings } from "../types/settings";
 import { Goal } from "../types/goal";
 import {
@@ -6,8 +6,12 @@ import {
   SunIcon,
   SparklesIcon,
   RefreshIcon,
+  DownloadIcon,
+  UploadIcon,
+  CheckIcon,
 } from "../components/Icons";
 import { fetchExchangeRatesInTRY, ExchangeRateInfo, CurrencyCode, DEFAULT_RATES_IN_TRY } from "../utils/currency";
+import { exportBackupToJson, exportGoalsToCsv, parseBackupJson } from "../utils/exportImport";
 import { invoke } from "@tauri-apps/api/core";
 
 interface SettingsProps {
@@ -19,11 +23,18 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({
   settings,
+  goals = [],
   onSettingsChange,
+  onGoalsChange,
 }) => {
   const [converting, setConverting] = useState(false);
   const [exchangeRates, setExchangeRates] = useState<ExchangeRateInfo | null>(null);
   const [ratesLoading, setRatesLoading] = useState(false);
+
+  // Backup & Import states
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadRates = async () => {
     setRatesLoading(true);
@@ -66,6 +77,53 @@ const Settings: React.FC<SettingsProps> = ({
     });
   };
 
+  // Export handlers
+  const handleExportJson = () => {
+    exportBackupToJson(goals, settings);
+  };
+
+  const handleExportCsv = () => {
+    exportGoalsToCsv(goals);
+  };
+
+  // Import handler
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportStatus(null);
+    setImportError(null);
+
+    const confirmed = window.confirm(
+      "Yedek dosyasını içe aktarmak üzeresiniz. Mevcut verileriniz bu yedekteki verilerle güncellenecektir. Onaylıyor musunuz?"
+    );
+
+    if (!confirmed) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    try {
+      const backup = await parseBackupJson(file);
+
+      // Save goals
+      await invoke("save_goals", { goals: backup.goals });
+      if (onGoalsChange) onGoalsChange(backup.goals);
+
+      // Save settings if present
+      if (backup.settings) {
+        await invoke("save_settings", { settings: backup.settings });
+        onSettingsChange(backup.settings);
+      }
+
+      setImportStatus(`Yedek başarıyla yüklendi! (${backup.goals.length} hedef aktarıldı)`);
+    } catch (err: any) {
+      setImportError(err.message || "Yedek dosyası yüklenirken bir hata oluştu.");
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <div className="page settings-page">
       <div className="page-header">
@@ -74,7 +132,7 @@ const Settings: React.FC<SettingsProps> = ({
 
       {/* Theme */}
       <div className="settings-section">
-        <h3 className="settings-section-title">Tema</h3>
+        <h3 className="settings-section-title">Görünüm ve Tema</h3>
         <div className="settings-options">
           <button
             className={`option-btn ${settings.theme === "dark" ? "active" : ""}`}
@@ -180,6 +238,75 @@ const Settings: React.FC<SettingsProps> = ({
         </div>
       </div>
 
+      {/* Data Management & Backup */}
+      <div className="settings-section">
+        <h3 className="settings-section-title">Veri Yönetimi & Yedekleme</h3>
+        <p className="settings-description">
+          Hedeflerinizi, birikim geçmişinizi ve tercihlerinizi cihazınızda güvenle saklamak veya başka bir cihaza aktarmak için dışa/içe aktarabilirsiniz.
+        </p>
+
+        <div className="backup-actions-grid">
+          {/* JSON Export */}
+          <div className="backup-card">
+            <div className="backup-card-info">
+              <span className="backup-card-title">Tüm Verileri Yedekle (JSON)</span>
+              <span className="backup-card-sub">Hedefler, ayarlar ve tüm işlem geçmişini içerir</span>
+            </div>
+            <button className="btn btn-secondary backup-action-btn" onClick={handleExportJson}>
+              <DownloadIcon size={16} />
+              <span>JSON İndir</span>
+            </button>
+          </div>
+
+          {/* CSV Export */}
+          <div className="backup-card">
+            <div className="backup-card-info">
+              <span className="backup-card-title">Hedefleri Tablo Olarak İndir (CSV)</span>
+              <span className="backup-card-sub">Excel ve Numbers uyumlu Türkçe tablo</span>
+            </div>
+            <button className="btn btn-secondary backup-action-btn" onClick={handleExportCsv}>
+              <DownloadIcon size={16} />
+              <span>CSV İndir</span>
+            </button>
+          </div>
+
+          {/* JSON Import */}
+          <div className="backup-card">
+            <div className="backup-card-info">
+              <span className="backup-card-title">Yedekten Geri Yükle</span>
+              <span className="backup-card-sub">Daha önce indirdiğiniz bir JSON yedeğini yükleyin</span>
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".json"
+              style={{ display: "none" }}
+              onChange={handleFileChange}
+            />
+            <button
+              className="btn btn-secondary backup-action-btn"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <UploadIcon size={16} />
+              <span>Yedek Dosyası Seç</span>
+            </button>
+          </div>
+        </div>
+
+        {importStatus && (
+          <div className="status-banner status-success">
+            <CheckIcon size={16} />
+            <span>{importStatus}</span>
+          </div>
+        )}
+
+        {importError && (
+          <div className="status-banner status-error">
+            <span>{importError}</span>
+          </div>
+        )}
+      </div>
+
       {/* About Application */}
       <div className="settings-section">
         <h3 className="settings-section-title">
@@ -197,6 +324,7 @@ const Settings: React.FC<SettingsProps> = ({
             <SparklesIcon size={13} />
             AI Destekli Asistan
           </span>
+          <span className="badge-pill">Klavye Kısayolları (⌘K)</span>
           <span className="badge-pill">Yerel & Güvenli</span>
         </div>
       </div>
