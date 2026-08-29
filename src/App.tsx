@@ -8,6 +8,10 @@ import Settings from "./pages/Settings";
 import { Goal } from "./types/goal";
 import { AppSettings, DEFAULT_SETTINGS } from "./types/settings";
 import { TargetIcon } from "./components/Icons";
+import { CommandPalette } from "./components/CommandPalette";
+import { SimulationModal } from "./components/SimulationModal";
+import { exportBackupToJson, exportGoalsToCsv } from "./utils/exportImport";
+import type { CurrencyCode } from "./utils/currency";
 import "./styles/global.css";
 
 const App: React.FC = () => {
@@ -15,6 +19,11 @@ const App: React.FC = () => {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+
+  // Command palette and simulation states
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isGlobalSimulationOpen, setIsGlobalSimulationOpen] = useState(false);
+  const [simulationGoalId, setSimulationGoalId] = useState<string | undefined>(undefined);
 
   // Load data on mount and window focus
   useEffect(() => {
@@ -38,6 +47,25 @@ const App: React.FC = () => {
     return () => window.removeEventListener("focus", loadData);
   }, []);
 
+  // Global Keyboard Shortcuts (⌘K for command palette, ⌘N for new goal)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ⌘K or Ctrl+K
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+      // ⌘N or Ctrl+N -> Navigate to goals
+      else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setActivePage("goals");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // Apply theme
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", settings.theme);
@@ -54,6 +82,24 @@ const App: React.FC = () => {
     );
   }
 
+  const handleGoalsChange = async (newGoals: Goal[]) => {
+    setGoals(newGoals);
+    try {
+      await invoke("save_goals", { goals: newGoals });
+    } catch (err) {
+      console.error("Failed to save goals:", err);
+    }
+  };
+
+  const handleSettingsChange = async (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    try {
+      await invoke("save_settings", { settings: newSettings });
+    } catch (err) {
+      console.error("Failed to save settings:", err);
+    }
+  };
+
   const renderPage = () => {
     switch (activePage) {
       case "dashboard":
@@ -61,8 +107,8 @@ const App: React.FC = () => {
           <Dashboard
             goals={goals}
             settings={settings}
-            onGoalsChange={setGoals}
-            onNavigate={(page) => setActivePage(page)}
+            onGoalsChange={handleGoalsChange}
+            onNavigate={(page) => setActivePage(page as Page)}
           />
         );
       case "goals":
@@ -70,7 +116,7 @@ const App: React.FC = () => {
           <Goals
             goals={goals}
             settings={settings}
-            onGoalsChange={setGoals}
+            onGoalsChange={handleGoalsChange}
           />
         );
       case "notifications":
@@ -78,7 +124,7 @@ const App: React.FC = () => {
           <Notifications
             settings={settings}
             goals={goals}
-            onSettingsChange={setSettings}
+            onSettingsChange={handleSettingsChange}
           />
         );
       case "settings":
@@ -86,8 +132,8 @@ const App: React.FC = () => {
           <Settings
             settings={settings}
             goals={goals}
-            onSettingsChange={setSettings}
-            onGoalsChange={setGoals}
+            onSettingsChange={handleSettingsChange}
+            onGoalsChange={handleGoalsChange}
           />
         );
     }
@@ -97,6 +143,35 @@ const App: React.FC = () => {
     <div className="app">
       <Sidebar activePage={activePage} onNavigate={setActivePage} />
       <main className="main-content">{renderPage()}</main>
+
+      {/* Global Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        goals={goals}
+        onNavigate={(page) => setActivePage(page as Page)}
+        onOpenNewGoal={() => {
+          setActivePage("goals");
+        }}
+        onOpenSimulation={(goalId) => {
+          setSimulationGoalId(goalId || goals[0]?.id);
+          setIsGlobalSimulationOpen(true);
+        }}
+        onOpenQuickAdd={() => {
+          setActivePage("goals");
+        }}
+        onExportJson={() => exportBackupToJson(goals, settings)}
+        onExportCsv={() => exportGoalsToCsv(goals)}
+      />
+
+      {/* Global Simulation Modal (accessible via ⌘K) */}
+      <SimulationModal
+        isOpen={isGlobalSimulationOpen}
+        onClose={() => setIsGlobalSimulationOpen(false)}
+        goals={goals}
+        initialGoalId={simulationGoalId}
+        defaultCurrency={settings.currency as CurrencyCode}
+      />
     </div>
   );
 };
